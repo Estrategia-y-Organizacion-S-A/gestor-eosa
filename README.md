@@ -1,32 +1,54 @@
-# React + TypeScript + Vite
+# 🏢 Gestor EOSA
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Plataforma integral para la gestión interna de recursos y logística en EOSA. Desarrollada para facilitar el día a día de los empleados, permitiendo compartir coche, reservar mesas en la oficina y gestionar el préstamo de material (gadgets).
 
-Currently, two official plugins are available:
+## ✨ Funcionalidades Principales
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+### 🚗 Viajes (Carpooling)
+Sistema para compartir gastos y reducir la huella de carbono al venir a la oficina.
+- **Publicar Viajes:** Los conductores pueden ofrecer sus asientos disponibles indicando origen, destino, fecha y hora.
+- **Reservar Asientos:** Los compañeros pueden apuntarse a los viajes publicados de forma sencilla.
+- **Notificaciones en Tiempo Real:** El sistema avisa al instante al conductor cuando alguien reserva un asiento en su coche mediante una campana de alertas en la cabecera.
 
-## React Compiler
+### 📅 Mesas (Hot Desking & Salas)
+Plano interactivo de la oficina para organizar el trabajo presencial.
+- **Reserva de Puestos:** Visualiza el plano en vista 2D y reserva tu mesa para un día en concreto.
+- **Sala de Reuniones:** Gestión unificada de la sala principal para evitar conflictos de horarios.
+- **Mesa de Entrada:** Puestos rotativos para tareas específicas o visitas temporales.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### 🔧 Gadgets (Inventario)
+Catálogo digital para el préstamo de material de la empresa.
+- **Categorías:** Pantallas, Periféricos, Audiovisual y Cables.
+- **Préstamos y Devoluciones:** Llévate un monitor a casa o un proyector a una reunión. El sistema registra quién tiene cada dispositivo para evitar pérdidas.
+- **Mochila Virtual:** Desde la pestaña 'Mis Préstamos', los usuarios pueden ver el material que tienen actualmente y devolverlo con un clic.
 
-## Expanding the Oxlint configuration
+### 🛡️ Perfil y Panel de Administración
+- **Gestión de Perfil:** Personaliza tu nombre, correo y contraseña. Configura qué notificaciones deseas recibir.
+- **Panel Modo Dios (Admins):** Los administradores pueden acceder a una sección exclusiva para auditar a los usuarios registrados, conceder o quitar permisos de administración y suspender cuentas temporalmente.
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+## 🛠️ Tecnologías Utilizadas
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
-```
+- **Frontend:** React 18, TypeScript, Vite
+- **Estilos:** Tailwind CSS v4, Lucide React (Iconos), clsx
+- **Base de Datos & Auth:** Firebase Firestore (Reglas de Seguridad blindadas) y Firebase Authentication
+- **Enrutamiento:** React Router DOM
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## 🚀 Instalación y Uso
+
+1. Clona el repositorio.
+2. Instala las dependencias necesarias:
+   ```bash
+   npm install
+   ```
+3. Configura tus variables de entorno creando un archivo `.env` en la raíz con las claves de tu proyecto de Firebase.
+4. Para levantar el servidor en modo desarrollo:
+   ```bash
+   npm run dev
+   ```
+5. Para compilar la versión optimizada de producción:
+   ```bash
+   npm run build
+   ```
+
+---
+*Hecho a medida para el equipo de EOSA.*
