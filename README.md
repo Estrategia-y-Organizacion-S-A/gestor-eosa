@@ -51,4 +51,4 @@ Catálogo digital para el préstamo de material de la empresa.
    ```
 
 ---
-*Hecho a medida para el equipo de EOSA.*
+*Realizado por Lara Loveira Nores :)*
