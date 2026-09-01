@@ -1,4 +1,4 @@
-# 🏢 Gestor EOSA
+# 🏢 Gestor Empresarial
 
 Plataforma integral para la gestión interna de recursos y logística en EOSA. Desarrollada para facilitar el día a día de los empleados, permitiendo compartir coche, reservar mesas en la oficina y gestionar el préstamo de material (gadgets).
 
