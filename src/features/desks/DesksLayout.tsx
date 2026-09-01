@@ -1,16 +1,24 @@
 import { useState } from 'react';
-import { CalendarDays, Info } from 'lucide-react';
+import { Info } from 'lucide-react';
 import { OfficeMap } from './OfficeMap';
 import { useDesks } from './hooks/useDesks';
 import { DesksGuideModal } from './DesksGuideModal';
 import { toast } from 'react-hot-toast';
 import { useConfirm } from '../../contexts/ConfirmContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { DeskCalendar } from './components/DeskCalendar';
 
 export function DesksLayout() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const { confirm } = useConfirm();
-  const { desks, getDeskStatus, myHabitualDesk, releaseHabitualDesk, cancelRelease, releases, abandonHabitualDesk } = useDesks(selectedDate);
+  const { user } = useAuth();
+  const { desks, getDeskStatus, myHabitualDesk, releaseHabitualDesk, cancelReleaseByDate, releases, bookings, abandonHabitualDesk, futureReleases } = useDesks(selectedDate);
+
+
+
+  const myReleasedDates = releases.filter(r => r.ownerId === user?.uid).map(r => r.date);
+  const myBookedDates = bookings.filter(b => b.userId === user?.uid && desks.find(d => d.id === b.deskId)?.type !== 'meeting_room').map(b => b.date);
 
   // Calcular stats
   const totalSeats = 40;
@@ -48,25 +56,12 @@ export function DesksLayout() {
         
         {/* Sidebar */}
         <div className="w-full lg:w-72 flex-shrink-0 space-y-6">
-          {/* Fechas */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
-              <CalendarDays className="w-5 h-5 text-gray-500" />
-              Fecha seleccionada
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <div className="relative">
-                  <input 
-                    type="date" 
-                    value={selectedDate}
-                    onChange={e => setSelectedDate(e.target.value)}
-                    className="w-full pl-3 pr-10 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-brand-red" 
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
+          <DeskCalendar 
+            selectedDate={selectedDate}
+            onSelectDate={setSelectedDate}
+            releasedDates={myReleasedDates}
+            bookedDates={myBookedDates}
+          />
 
           {/* Mi Puesto Habitual */}
           {myHabitualDesk && (
@@ -87,15 +82,34 @@ export function DesksLayout() {
                   Renunciar
                 </button>
               </div>
-              <p className="text-sm text-blue-800 mb-4 font-medium">{myHabitualDesk.label}</p>
+              <p className="text-sm text-blue-800 mb-2 font-medium">{myHabitualDesk.label}</p>
+              
+              <div className="text-xs text-orange-700 bg-orange-100/50 p-3 rounded-lg mb-4 border border-orange-200">
+                <p className="font-semibold mb-1">Próximas ausencias confirmadas:</p>
+                {futureReleases.length > 0 ? (
+                  <ul className="space-y-1 max-h-32 overflow-y-auto mt-2">
+                    {futureReleases.map((d, idx) => (
+                      <li key={idx} className="flex justify-between items-center bg-orange-50/50 p-1.5 rounded border border-orange-200/50">
+                        <span>{new Date(d).toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short' })}</span>
+                        <button 
+                          onClick={() => cancelReleaseByDate(myHabitualDesk.id, d)}
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded transition-colors"
+                          title="Anular ausencia"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-orange-600/70 mt-2 italic">Actualmente no hay ninguna ausencia programada.</p>
+                )}
+              </div>
               
               <div className="space-y-2">
                 {getDeskStatus(myHabitualDesk) === 'available' ? (
                   <button 
-                    onClick={() => {
-                      const release = releases.find(r => r.deskId === myHabitualDesk.id && r.date === selectedDate);
-                      if (release) cancelRelease(release.id);
-                    }}
+                    onClick={() => cancelReleaseByDate(myHabitualDesk.id, selectedDate)}
                     className="w-full bg-white border border-blue-200 hover:bg-blue-50 text-blue-700 py-2 rounded-md text-sm font-medium transition-colors"
                   >
                     Anular ausencia del {selectedDate}
@@ -111,25 +125,24 @@ export function DesksLayout() {
 
                 <hr className="border-blue-100 my-3" />
                 <p className="text-xs text-blue-800 font-medium mb-2">¿Te vas varios días?</p>
-                <form 
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    const fd = new FormData(e.currentTarget);
-                    const start = fd.get('startDate') as string;
-                    const end = fd.get('endDate') as string;
-                    if (!start || !end) return;
-                    
-                    const dates = [];
-                    let curr = new Date(start);
-                    const last = new Date(end);
-                    while (curr <= last) {
-                      dates.push(curr.toISOString().split('T')[0]);
-                      curr.setDate(curr.getDate() + 1);
-                    }
-                    releaseHabitualDesk(myHabitualDesk.id, dates);
-                    (e.target as HTMLFormElement).reset();
-                    toast.success(`Puesto liberado desde ${start} hasta ${end}`);
-                  }}
+                <form                    onSubmit={e => {
+                      e.preventDefault();
+                      const formData = new FormData(e.currentTarget);
+                      const start = formData.get('startDate') as string;
+                      const end = formData.get('endDate') as string;
+                      if (!start || !end) return;
+                      
+                      const dates = [];
+                      let curr = new Date(start);
+                      const last = new Date(end);
+                      while (curr <= last) {
+                        dates.push(curr.toISOString().split('T')[0]);
+                        curr.setUTCDate(curr.getUTCDate() + 1);
+                      }
+                      releaseHabitualDesk(myHabitualDesk.id, dates);
+                      (e.target as HTMLFormElement).reset();
+                      toast.success(`Puesto liberado desde ${start} hasta ${end}`);
+                    }}
                   className="space-y-2"
                 >
                   <div className="flex gap-2">
@@ -159,7 +172,7 @@ export function DesksLayout() {
 
         {/* Map */}
         <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-100 p-8 min-h-[600px] flex flex-col relative w-full overflow-x-auto">
-          <OfficeMap selectedDate={selectedDate} />
+          <OfficeMap selectedDate={selectedDate} futureReleases={futureReleases} />
         </div>
         
       </div>

@@ -3,6 +3,7 @@ import { clsx } from 'clsx';
 import { useAuth } from '../../contexts/AuthContext';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import { useDesks, type Desk } from './hooks/useDesks';
+import { toast } from 'react-hot-toast';
 
 function DeskGroup({ name, x, y, width, height, isVertical = false, variant = 'amber' }: { name: string; x: number; y: number; width: number; height: number; isVertical?: boolean; variant?: 'amber' | 'red' }) {
   return (
@@ -32,11 +33,13 @@ function Room({ name, x, y, width, height, variant = 'gray' }: { name: string; x
   );
 }
 
-export function OfficeMap({ selectedDate }: { selectedDate: string }) {
+export function OfficeMap({ selectedDate, futureReleases }: { selectedDate: string, futureReleases: string[] }) {
   const { user } = useAuth();
   const { confirm } = useConfirm();
-  const { desks, getDeskStatus, claimHabitualDesk, releaseHabitualDesk, abandonHabitualDesk, bookDesk, myHabitualDesk, loading, cancelRelease, releases, bookings, cancelBooking } = useDesks(selectedDate);
+  const { desks, getDeskStatus, claimHabitualDesk, releaseHabitualDesk, abandonHabitualDesk, bookDesk, myHabitualDesk, loading, cancelReleaseByDate, releases, bookings, cancelBooking } = useDesks(selectedDate);
   const [selectedDesk, setSelectedDesk] = useState<Desk | null>(null);
+  const [isMultiBookingMode, setIsMultiBookingMode] = useState(false);
+  const [multiBookingEndDate, setMultiBookingEndDate] = useState('');
 
   if (loading) {
     return <div className="flex-1 flex items-center justify-center">Cargando mapa...</div>;
@@ -44,6 +47,8 @@ export function OfficeMap({ selectedDate }: { selectedDate: string }) {
 
   const handleSeatClick = (desk: Desk) => {
     setSelectedDesk(desk);
+    setIsMultiBookingMode(false);
+    setMultiBookingEndDate('');
   };
 
   const statusColors = {
@@ -121,7 +126,7 @@ export function OfficeMap({ selectedDate }: { selectedDate: string }) {
                   onClick={() => {
                     const start = (document.getElementById('timeStart') as HTMLInputElement).value;
                     const end = (document.getElementById('timeEnd') as HTMLInputElement).value;
-                    bookDesk(selectedDesk.id, selectedDate, start, end);
+                    bookDesk(selectedDesk.id, [selectedDate], start, end);
                     setSelectedDesk(null);
                   }}
                   className="w-full bg-brand-red hover:bg-[#A31C30] text-white py-2 rounded-md text-sm font-medium"
@@ -164,7 +169,7 @@ export function OfficeMap({ selectedDate }: { selectedDate: string }) {
                               });
                               if (!isConfirmed) return;
                             }
-                            cancelRelease(release.id);
+                            cancelReleaseByDate(selectedDesk.id, selectedDate);
                           }
                           setSelectedDesk(null);
                         }}
@@ -223,6 +228,17 @@ export function OfficeMap({ selectedDate }: { selectedDate: string }) {
                             ? releases.some(r => r.deskId === myHabitualDesk.id && r.date === selectedDate)
                             : false;
                           
+                          // 1. Incongruencia: Evitar que el usuario reserve temporalmente su propia mesa
+                          if (myHabitualDesk?.id === selectedDesk.id) {
+                            return (
+                              <p className="text-xs text-blue-600 bg-blue-50 p-2 rounded mb-2 border border-blue-100">
+                                {isMyHabitualReleasedToday 
+                                  ? "Has liberado tu puesto para este día. Si quieres volver a ocuparlo, anula tu ausencia desde el panel izquierdo."
+                                  : "Este es tu puesto habitual y ya lo tienes asignado para este día."}
+                              </p>
+                            );
+                          }
+
                           if (myHabitualDesk && !isMyHabitualReleasedToday) {
                             return (
                               <p className="text-xs text-red-600 bg-red-50 p-2 rounded mb-2 border border-red-100">
@@ -231,16 +247,128 @@ export function OfficeMap({ selectedDate }: { selectedDate: string }) {
                             );
                           }
 
+                          if (isMultiBookingMode) {
+                            return (
+                              <div className="space-y-2 mt-2 bg-gray-50 p-3 rounded border border-gray-100">
+                                <p className="text-xs font-semibold text-gray-700">Reservar desde el {selectedDate} hasta:</p>
+                                <input 
+                                  type="date" 
+                                  min={selectedDate}
+                                  value={multiBookingEndDate}
+                                  onChange={e => setMultiBookingEndDate(e.target.value)}
+                                  className="w-full px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none focus:ring-1 focus:ring-brand-red"
+                                />
+                                <div className="flex gap-2">
+                                  <button 
+                                    onClick={() => {
+                                      if (!multiBookingEndDate) return;
+                                      
+                                      // Generar array de fechas
+                                      const dates = [];
+                                      let curr = new Date(selectedDate);
+                                      const end = new Date(multiBookingEndDate);
+                                      while (curr <= end) {
+                                        dates.push(curr.toISOString().split('T')[0]);
+                                        curr.setUTCDate(curr.getUTCDate() + 1);
+                                      }
+                                      
+                                      // 1. Validar que la mesa está libre en todos esos días
+                                      const unavailableDates = dates.filter(d => {
+                                        if (selectedDesk.ownerId) {
+                                          const isReleased = releases.some(r => r.deskId === selectedDesk.id && r.date === d);
+                                          if (!isReleased) return true;
+                                        }
+                                        return bookings.some(b => b.deskId === selectedDesk.id && b.date === d);
+                                      });
+
+                                      if (unavailableDates.length > 0) {
+                                        toast.error(`La mesa no está libre los días: ${unavailableDates.join(', ')}`);
+                                        return;
+                                      }
+
+                                      // 2. Validar que no excede los días liberados de su puesto habitual
+                                      if (myHabitualDesk) {
+                                        const unreleasedDates = dates.filter(d => !futureReleases.includes(d));
+                                        if (unreleasedDates.length > 0) {
+                                          toast.error(`No puedes reservar en días que no has liberado tu puesto habitual: ${unreleasedDates.join(', ')}`);
+                                          return;
+                                        }
+                                      }
+
+                                      // 3. Validar que el usuario no tenga ya otra mesa temporal reservada ese día
+                                      const alreadyBookedDates = dates.filter(d => 
+                                        bookings.some(b => b.userId === user?.uid && b.date === d && desks.find(desk => desk.id === b.deskId)?.type !== 'meeting_room')
+                                      );
+                                      if (alreadyBookedDates.length > 0) {
+                                        toast.error(`Ya tienes otra mesa reservada los días: ${alreadyBookedDates.join(', ')}`);
+                                        return;
+                                      }
+
+                                      bookDesk(selectedDesk.id, dates);
+                                      setSelectedDesk(null);
+                                      setIsMultiBookingMode(false);
+                                      setMultiBookingEndDate('');
+                                    }}
+                                    disabled={!multiBookingEndDate || multiBookingEndDate < selectedDate}
+                                    className="flex-1 bg-brand-red hover:bg-[#A31C30] text-white py-1.5 rounded text-xs font-medium disabled:opacity-50"
+                                  >
+                                    Confirmar
+                                  </button>
+                                  <button 
+                                    onClick={() => setIsMultiBookingMode(false)}
+                                    className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 py-1.5 rounded text-xs font-medium"
+                                  >
+                                    Cancelar
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          }
+
                           return (
-                            <button 
-                              onClick={() => {
-                                bookDesk(selectedDesk.id, selectedDate);
-                                setSelectedDesk(null);
-                              }}
-                              className="w-full bg-brand-red hover:bg-[#A31C30] text-white py-2 rounded-md text-sm font-medium"
-                            >
-                              Reservar temporalmente (Solo para el {selectedDate})
-                            </button>
+                            <div className="flex flex-col gap-2">
+                              <button 
+                                onClick={() => {
+                                  const date = selectedDate;
+                                  // 1. Validar si está libre
+                                  if (selectedDesk.ownerId) {
+                                    const isReleased = releases.some(r => r.deskId === selectedDesk.id && r.date === date);
+                                    if (!isReleased) {
+                                      toast.error(`La mesa no está libre el día: ${date}`);
+                                      return;
+                                    }
+                                  }
+                                  if (bookings.some(b => b.deskId === selectedDesk.id && b.date === date)) {
+                                    toast.error(`La mesa ya está reservada el día: ${date}`);
+                                    return;
+                                  }
+                                  // 2. Validar si tiene habitual
+                                  if (myHabitualDesk && !futureReleases.includes(date)) {
+                                    toast.error(`No puedes reservar este día porque no has liberado tu puesto habitual: ${date}`);
+                                    return;
+                                  }
+
+                                  // 3. Validar si ya tiene otra reserva
+                                  const alreadyBooked = bookings.some(b => b.userId === user?.uid && b.date === date && desks.find(desk => desk.id === b.deskId)?.type !== 'meeting_room');
+                                  if (alreadyBooked) {
+                                    toast.error(`Ya tienes otra mesa reservada el día: ${date}`);
+                                    return;
+                                  }
+
+                                  bookDesk(selectedDesk.id, [date]);
+                                  setSelectedDesk(null);
+                                }}
+                                className="w-full bg-brand-red hover:bg-[#A31C30] text-white py-2 rounded-md text-sm font-medium"
+                              >
+                                Reservar para el {selectedDate}
+                              </button>
+                              <button 
+                                onClick={() => setIsMultiBookingMode(true)}
+                                className="w-full bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 py-1.5 rounded-md text-xs font-medium"
+                              >
+                                Reservar para varios días
+                              </button>
+                            </div>
                           );
                         })()}
 
