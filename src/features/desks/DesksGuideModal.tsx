@@ -15,7 +15,7 @@ export function DesksGuideModal({ isOpen, onClose }: DesksGuideModalProps) {
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
             <Monitor className="w-6 h-6 text-brand-red" />
-            Guía de uso de Reserva de Mesas
+            Guía de uso de Reserva de Puestos
           </h2>
           <button 
             onClick={onClose}
@@ -34,17 +34,17 @@ export function DesksGuideModal({ isOpen, onClose }: DesksGuideModalProps) {
               1. Tu Puesto Habitual
             </h3>
             <p className="text-gray-600 leading-relaxed text-sm">
-              Si vienes a la oficina habitualmente, haz clic en una mesa libre (verde) y selecciona <strong>"Fijar como mi puesto habitual"</strong>. A partir de ese momento, esa será tu silla fija. La verás marcada siempre con un anillo azul brillante. ¡Solo puedes tener un puesto habitual!
+              Si vienes a la oficina habitualmente, haz clic en un puesto libre (verde) y selecciona <strong>"Fijar como mi puesto habitual"</strong>. A partir de ese momento, ese será tu puesto fijo. Lo verás marcado siempre con un anillo azul brillante. ¡Solo puedes tener un puesto habitual!
             </p>
           </section>
 
           <section className="space-y-3">
             <h3 className="font-bold text-lg text-gray-900 flex items-center gap-2">
               <CalendarOff className="w-5 h-5 text-orange-500" />
-              2. Avisar de ausencias (Teletrabajo/Vacaciones)
+              2. Avisar de ausencias (Teletrabajo/Vacaciones/Cliente)
             </h3>
             <p className="text-gray-600 leading-relaxed text-sm">
-              Cuando tengas un puesto habitual y vayas a faltar a la oficina, es importante liberar tu sitio para tus compañeros. Selecciona una fecha (o rango de fechas) en el panel izquierdo y haz clic en <strong>"No voy a ir"</strong> o <strong>"Liberar rango de fechas"</strong>. Tu mesa se pondrá verde esos días para que otros puedan usarla.
+              Cuando tengas un puesto habitual y no vayas a acudir a la oficina, es importante marcar el puesto como liberado. Selecciona una fecha (o rango de fechas) en el panel izquierdo y haz clic en <strong>"No voy a ir"</strong> o <strong>"Liberar rango de fechas"</strong>. Tu puesto se pondrá verde (libre) esos días para que otros puedan usarlo.
             </p>
           </section>
 
@@ -54,7 +54,7 @@ export function DesksGuideModal({ isOpen, onClose }: DesksGuideModalProps) {
               3. Reservas Puntuales
             </h3>
             <p className="text-gray-600 leading-relaxed text-sm">
-              Si no tienes un puesto fijo, puedes reservar cualquier mesa que esté en verde para el día seleccionado. Simplemente haz clic en ella y dale a <strong>"Reservar para el [fecha]"</strong>. Ten en cuenta que solo puedes tener una mesa reservada al día.
+              Si no tienes un puesto fijo, puedes reservar cualquier puesto que esté en verde para el día seleccionado. Simplemente haz clic en él y dale a <strong>"Reservar para el [fecha]"</strong>. Ten en cuenta que solo puedes tener un puesto reservado al día.
             </p>
           </section>
 

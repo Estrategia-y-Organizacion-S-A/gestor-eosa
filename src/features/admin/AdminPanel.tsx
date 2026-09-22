@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Shield, Monitor, Wrench, Car, Plus, Trash2, RotateCcw, Edit, X, Users } from 'lucide-react';
+import { Shield, Monitor, Wrench, Car, Plus, Trash2, RotateCcw, Edit, X, Users, ArrowRightLeft } from 'lucide-react';
 import { clsx } from 'clsx';
-import { collection, getDocs, deleteDoc, doc, updateDoc, setDoc } from 'firebase/firestore';
+import { collection, getDocs, deleteDoc, doc, updateDoc, setDoc, writeBatch } from 'firebase/firestore';
 import { toast } from 'react-hot-toast';
 import { db } from '../../firebase/config';
 import { useGadgets } from '../gadgets/hooks/useGadgets';
@@ -21,6 +21,7 @@ interface AdminDesk {
   label: string;
   ownerId?: string;
   ownerName?: string;
+  type?: string;
 }
 
 interface AppUser {
@@ -37,9 +38,20 @@ export function AdminPanel() {
   
   // Data States
   const [trips, setTrips] = useState<AdminTrip[]>([]);
+  const [allDesks, setAllDesks] = useState<AdminDesk[]>([]);
   const [habitualDesks, setHabitualDesks] = useState<AdminDesk[]>([]);
   const [usersList, setUsersList] = useState<AppUser[]>([]);
   const [newAdminEmail, setNewAdminEmail] = useState('');
+  
+  // Asignar Puesto Modal
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+  const [assignUserId, setAssignUserId] = useState('');
+  const [assignDeskId, setAssignDeskId] = useState('');
+
+  // Mover Puesto Modal
+  const [isMoveModalOpen, setIsMoveModalOpen] = useState(false);
+  const [deskToMove, setDeskToMove] = useState<AdminDesk | null>(null);
+  const [moveTargetDeskId, setMoveTargetDeskId] = useState('');
   
   // Gadgets hook (reused)
   const { gadgets, returnGadget, deleteGadget, updateGadget } = useGadgets();
@@ -54,12 +66,13 @@ export function AdminPanel() {
 
   const fetchDesks = async () => {
     const snap = await getDocs(collection(db, 'officeResources'));
-    const data = snap.docs
-      .map(d => ({ id: d.id, ...d.data() } as AdminDesk))
-      .filter(d => d.ownerId); // Usar ownerId en lugar de habitualOwnerId
+    const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as AdminDesk));
     
     const unique = Array.from(new Map(data.map(item => [item.label, item])).values());
-    setHabitualDesks(unique);
+    unique.sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
+    
+    setAllDesks(unique);
+    setHabitualDesks(unique.filter(d => d.ownerId));
   };
 
   const fetchUsers = async () => {
@@ -130,6 +143,61 @@ export function AdminPanel() {
     fetchDesks();
   };
 
+  const handleAssignDesk = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!assignUserId || !assignDeskId) return;
+    
+    const userToAssign = usersList.find(u => u.id === assignUserId);
+    if (!userToAssign) return;
+
+    const userName = userToAssign.displayName || userToAssign.email?.split('@')[0] || 'Compañero';
+
+    try {
+      await updateDoc(doc(db, 'officeResources', assignDeskId), {
+        ownerId: assignUserId,
+        ownerName: userName
+      });
+      toast.success('Puesto asignado con éxito');
+      setIsAssignModalOpen(false);
+      setAssignUserId('');
+      setAssignDeskId('');
+      fetchDesks();
+    } catch (error) {
+      toast.error('Error al asignar el puesto');
+    }
+  };
+
+  const handleMoveDesk = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!deskToMove || !moveTargetDeskId) return;
+
+    try {
+      const batch = writeBatch(db);
+      
+      // Liberar el viejo
+      batch.update(doc(db, 'officeResources', deskToMove.id), {
+        ownerId: null,
+        ownerName: null
+      });
+
+      // Asignar el nuevo
+      batch.update(doc(db, 'officeResources', moveTargetDeskId), {
+        ownerId: deskToMove.ownerId,
+        ownerName: deskToMove.ownerName
+      });
+
+      await batch.commit();
+
+      toast.success('Puesto movido con éxito');
+      setIsMoveModalOpen(false);
+      setDeskToMove(null);
+      setMoveTargetDeskId('');
+      fetchDesks();
+    } catch (error) {
+      toast.error('Error al mover el puesto');
+    }
+  };
+
   const handleAddGadget = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newGadget.name.trim()) return;
@@ -167,6 +235,9 @@ export function AdminPanel() {
       toast.error('Hubo un error al otorgar los privilegios.');
     }
   };
+
+  const availableDesks = allDesks.filter(d => !d.ownerId && d.type === 'seat');
+  const usersWithoutDesk = usersList.filter(u => !habitualDesks.some(d => d.ownerId === u.id));
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -353,9 +424,18 @@ export function AdminPanel() {
           {/* TAB: MESAS */}
           {activeTab === 'mesas' && (
             <div className="space-y-6">
-              <div className="border-b border-gray-100 pb-4 mb-6">
-                <h2 className="text-xl font-bold text-gray-900">Puestos Habituales Asignados</h2>
-                <p className="text-sm text-gray-500 mt-1">Revisa qué empleado tiene asignada cada mesa fija y libéralas en caso de error o despido.</p>
+              <div className="border-b border-gray-100 pb-4 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Puestos Habituales Asignados</h2>
+                  <p className="text-sm text-gray-500 mt-1">Revisa qué empleado tiene asignada cada mesa fija, muévelos de sitio o asigna un nuevo puesto.</p>
+                </div>
+                <button
+                  onClick={() => setIsAssignModalOpen(true)}
+                  className="flex items-center justify-center gap-2 px-4 py-2 bg-brand-red text-white rounded-xl font-medium hover:bg-[#A31C30] transition-colors shadow-sm"
+                >
+                  <Plus className="w-5 h-5" />
+                  Asignar puesto
+                </button>
               </div>
 
               {habitualDesks.length === 0 ? (
@@ -370,13 +450,25 @@ export function AdminPanel() {
                         <span className="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded-md mb-2 inline-block">Mesa {desk.label}</span>
                         <p className="font-medium text-gray-900">{desk.ownerName || 'Usuario Desconocido'}</p>
                       </div>
-                      <button
-                        onClick={() => handleForceReleaseDesk(desk.id)}
-                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Liberar forzosamente"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            setDeskToMove(desk);
+                            setIsMoveModalOpen(true);
+                          }}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          title="Mover de puesto"
+                        >
+                          <ArrowRightLeft className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => handleForceReleaseDesk(desk.id)}
+                          className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Liberar forzosamente"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -640,6 +732,136 @@ export function AdminPanel() {
                   className="flex-1 px-4 py-2 bg-brand-red text-white rounded-lg font-medium hover:bg-[#A31C30] transition-colors"
                 >
                   Guardar Cambios
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Assign Desk Modal */}
+      {isAssignModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
+            <div className="flex justify-between items-center p-6 border-b border-gray-100">
+              <h2 className="text-xl font-bold text-gray-900">Asignar Puesto</h2>
+              <button 
+                onClick={() => setIsAssignModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleAssignDesk} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Empleado</label>
+                <select 
+                  value={assignUserId}
+                  onChange={(e) => setAssignUserId(e.target.value)}
+                  required 
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-red focus:border-transparent outline-none bg-white"
+                >
+                  <option value="">Selecciona un usuario...</option>
+                  {usersWithoutDesk.map(u => (
+                    <option key={u.id} value={u.id}>{u.displayName || u.email}</option>
+                  ))}
+                </select>
+                {usersWithoutDesk.length === 0 && <p className="text-xs text-red-500 mt-1">No hay usuarios disponibles sin puesto fijo.</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Mesa Libre</label>
+                <select 
+                  value={assignDeskId}
+                  onChange={(e) => setAssignDeskId(e.target.value)}
+                  required 
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-red focus:border-transparent outline-none bg-white"
+                >
+                  <option value="">Selecciona una mesa...</option>
+                  {availableDesks.map(d => (
+                    <option key={d.id} value={d.id}>Mesa {d.label}</option>
+                  ))}
+                </select>
+                {availableDesks.length === 0 && <p className="text-xs text-red-500 mt-1">No hay mesas libres actualmente.</p>}
+              </div>
+              
+              <div className="pt-4 flex gap-3">
+                <button 
+                  type="button" 
+                  onClick={() => setIsAssignModalOpen(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="submit" 
+                  disabled={!assignUserId || !assignDeskId}
+                  className="flex-1 px-4 py-2 bg-brand-red text-white rounded-lg font-medium hover:bg-[#A31C30] transition-colors disabled:opacity-50"
+                >
+                  Asignar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Move Desk Modal */}
+      {isMoveModalOpen && deskToMove && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
+            <div className="flex justify-between items-center p-6 border-b border-gray-100">
+              <h2 className="text-xl font-bold text-gray-900">Mover de Puesto</h2>
+              <button 
+                onClick={() => {
+                  setIsMoveModalOpen(false);
+                  setDeskToMove(null);
+                }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleMoveDesk} className="p-6 space-y-4">
+              <div className="bg-blue-50 text-blue-800 p-4 rounded-xl text-sm mb-4">
+                Estás moviendo a <strong>{deskToMove.ownerName}</strong> desde la <strong>Mesa {deskToMove.label}</strong> a un nuevo asiento libre.
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nueva Mesa</label>
+                <select 
+                  value={moveTargetDeskId}
+                  onChange={(e) => setMoveTargetDeskId(e.target.value)}
+                  required 
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-red focus:border-transparent outline-none bg-white"
+                >
+                  <option value="">Selecciona una nueva mesa...</option>
+                  {availableDesks.map(d => (
+                    <option key={d.id} value={d.id}>Mesa {d.label}</option>
+                  ))}
+                </select>
+                {availableDesks.length === 0 && <p className="text-xs text-red-500 mt-1">No hay mesas libres a las que moverle.</p>}
+              </div>
+              
+              <div className="pt-4 flex gap-3">
+                <button 
+                  type="button" 
+                  onClick={() => {
+                    setIsMoveModalOpen(false);
+                    setDeskToMove(null);
+                  }}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="submit"
+                  disabled={!moveTargetDeskId}
+                  className="flex-1 px-4 py-2 bg-brand-red text-white rounded-lg font-medium hover:bg-[#A31C30] transition-colors disabled:opacity-50"
+                >
+                  Mover Usuario
                 </button>
               </div>
             </form>

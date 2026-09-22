@@ -10,6 +10,7 @@ export interface CarpoolTrip {
   driverName?: string;
   origin: string;
   destination: string;
+  stops?: string;
   date: string;
   time: string;
   totalSeats: number;

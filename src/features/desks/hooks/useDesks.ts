@@ -9,6 +9,7 @@ export interface Desk {
   x: number;
   y: number;
   ownerId: string | null;
+  ownerName?: string | null;
   reservable: boolean;
   type?: 'seat' | 'meeting_room';
 }
@@ -24,6 +25,7 @@ export interface DeskBooking {
   id: string;
   deskId: string;
   userId: string;
+  userName?: string;
   date: string;
   startTime?: string;
   endTime?: string;
@@ -46,53 +48,66 @@ export function useDesks(selectedDate: string) {
       const allDesks = snap.docs.map(d => ({ id: d.id, ...d.data() } as Desk));
       setDesks(allDesks);
       
-      // Auto-alinear mesas de Entrada a la altura de "Mesa Entrada - T2" y asegurar nombres únicos
+      // Master Sync Script
       if (user) {
-        const entradaDesks = allDesks
-          .filter(d => d.label?.toLowerCase().includes('entrada'))
-          .sort((a, b) => (a.label || '').localeCompare(b.label || ''));
-          
-        if (entradaDesks.length >= 3) {
-          const referenceDesk = allDesks.find(d => d.label === 'Mesa Entrada - T2') || entradaDesks[1];
-          const targetY = referenceDesk.y || 25; 
-          
-          const e1 = entradaDesks[0];
-          const e2 = entradaDesks[1];
-          const e3 = entradaDesks[2];
-          
-          const extras = entradaDesks.slice(3);
-          
-          if (extras.length > 0 || e1.label !== 'Mesa Entrada - T1' || e2.label !== 'Mesa Entrada - T2' || e3.label !== 'Mesa Entrada - T3' || e1.x !== 426 || e2.x !== 464 || e3.x !== 502) {
-            console.log("Renombrando y alineando mesas de entrada...");
-            const batch = writeBatch(db);
-            
-            batch.set(doc(db, 'officeResources', e1.id), { x: 426, y: targetY, label: 'Mesa Entrada - T1' }, { merge: true });
-            batch.set(doc(db, 'officeResources', e2.id), { x: 464, y: targetY, label: 'Mesa Entrada - T2' }, { merge: true });
-            batch.set(doc(db, 'officeResources', e3.id), { x: 502, y: targetY, label: 'Mesa Entrada - T3' }, { merge: true });
-            
-            extras.forEach(extra => {
-              batch.delete(doc(db, 'officeResources', extra.id));
-            });
-            
-            batch.commit().catch(e => console.error("Error aligning:", e));
+        const MASTER_DESKS = [
+          // Mesa E (Comunicación)
+          { label: 'E1', x: 50, y: 32, type: 'seat' }, { label: 'E2', x: 86, y: 32, type: 'seat' }, { label: 'E3', x: 122, y: 32, type: 'seat' }, { label: 'E4', x: 158, y: 32, type: 'seat' },
+          { label: 'E8', x: 50, y: 96, type: 'seat' }, { label: 'E7', x: 86, y: 96, type: 'seat' }, { label: 'E6', x: 122, y: 96, type: 'seat' }, { label: 'E5', x: 158, y: 96, type: 'seat' },
+      
+          // Mesa C (Proyectos)
+          { label: 'C1', x: 230, y: 32, type: 'seat' }, { label: 'C2', x: 266, y: 32, type: 'seat' }, { label: 'C3', x: 302, y: 32, type: 'seat' }, { label: 'C4', x: 338, y: 32, type: 'seat' },
+          { label: 'C8', x: 230, y: 96, type: 'seat' }, { label: 'C7', x: 266, y: 96, type: 'seat' }, { label: 'C6', x: 302, y: 96, type: 'seat' }, { label: 'C5', x: 338, y: 96, type: 'seat' },
+      
+          // Mesa G (Administración)
+          { label: 'G1', x: 428, y: 32, type: 'seat' }, { label: 'G2', x: 464, y: 32, type: 'seat' }, { label: 'G3', x: 500, y: 32, type: 'seat' },
+      
+          // Mesa D (Proyectos europeos)
+          { label: 'D1', x: 256, y: 280, type: 'seat' }, { label: 'D2', x: 256, y: 316, type: 'seat' }, { label: 'D3', x: 256, y: 352, type: 'seat' }, { label: 'D4', x: 256, y: 388, type: 'seat' },
+          { label: 'D8', x: 192, y: 280, type: 'seat' }, { label: 'D7', x: 192, y: 316, type: 'seat' }, { label: 'D6', x: 192, y: 352, type: 'seat' }, { label: 'D5', x: 192, y: 388, type: 'seat' },
+      
+          // Mesa B (Turismo y P.Urbana)
+          { label: 'B1', x: 516, y: 217, type: 'seat' }, { label: 'B2', x: 516, y: 253, type: 'seat' }, { label: 'B3', x: 516, y: 289, type: 'seat' }, { label: 'B4', x: 516, y: 325, type: 'seat' }, { label: 'B5', x: 516, y: 361, type: 'seat' },
+          { label: 'B10', x: 452, y: 217, type: 'seat' }, { label: 'B9', x: 452, y: 253, type: 'seat' }, { label: 'B8', x: 452, y: 289, type: 'seat' }, { label: 'B7', x: 452, y: 325, type: 'seat' }, { label: 'B6', x: 452, y: 361, type: 'seat' },
+      
+          // Mesa A (Estudios y TIC)
+          { label: 'A1', x: 636, y: 251, type: 'seat' }, { label: 'A2', x: 636, y: 287, type: 'seat' }, { label: 'A3', x: 636, y: 323, type: 'seat' },
+          { label: 'A6', x: 572, y: 251, type: 'seat' }, { label: 'A5', x: 572, y: 287, type: 'seat' }, { label: 'A4', x: 572, y: 323, type: 'seat' },
+        ];
+
+        // Solo sincronizamos si hay un desajuste en el número de mesas o si falta alguna etiqueta importante (ej. E1)
+        const hasAllMasterLabels = MASTER_DESKS.every(md => allDesks.some(d => d.label === md.label && d.x === md.x && d.y === md.y));
+        const activeSeatsCount = allDesks.filter(d => d.type !== 'meeting_room').length;
+
+        if (!hasAllMasterLabels || activeSeatsCount !== MASTER_DESKS.length) {
+          console.log("Sincronizando distribución de mesas con la DB...");
+          const batch = writeBatch(db);
+          const currentSeats = allDesks.filter(d => d.type !== 'meeting_room');
+          let ownerIndex = 0;
+
+          for (const newDesk of MASTER_DESKS) {
+            const existing = allDesks.find(d => d.label === newDesk.label);
+            if (existing) {
+              batch.set(doc(db, 'officeResources', existing.id), { x: newDesk.x, y: newDesk.y, label: newDesk.label, type: 'seat' }, { merge: true });
+              const idx = currentSeats.findIndex(s => s.id === existing.id);
+              if (idx !== -1) currentSeats.splice(idx, 1);
+            } else {
+              let ownerData: { ownerId: string | null; ownerName: string | null } = { ownerId: null, ownerName: null };
+              if (ownerIndex < currentSeats.length) {
+                ownerData = { ownerId: currentSeats[ownerIndex].ownerId || null, ownerName: currentSeats[ownerIndex].ownerName || null };
+                ownerIndex++;
+              }
+              const newRef = doc(collection(db, 'officeResources'));
+              batch.set(newRef, { ...newDesk, ...ownerData, reservable: true });
+            }
           }
-        } else if (entradaDesks.length > 0 && entradaDesks.length < 3) {
-           // Si por error se borró alguna, la recreamos para asegurar siempre 3
-           console.log("Faltan mesas, recreando...");
-           const batch = writeBatch(db);
-           const targetY = entradaDesks[0].y || 25;
-           const requiredLabels = ['Mesa Entrada - T1', 'Mesa Entrada - T2', 'Mesa Entrada - T3'];
-           const xs = [426, 464, 502];
-           
-           requiredLabels.forEach((label, i) => {
-             const existing = entradaDesks.find(d => d.label === label) || entradaDesks[i];
-             if (existing) {
-               batch.set(doc(db, 'officeResources', existing.id), { x: xs[i], y: targetY, label }, { merge: true });
-             } else {
-               batch.set(doc(collection(db, 'officeResources')), { x: xs[i], y: targetY, label, type: 'desk', ownerId: null, ownerName: null });
-             }
-           });
-           batch.commit();
+
+          // Eliminar absolutamente todos los asientos antiguos que sobraron y no se reutilizaron (incluyendo fantasmas como Adolfo y Rodri)
+          for (let i = 0; i < currentSeats.length; i++) {
+            batch.delete(doc(db, 'officeResources', currentSeats[i].id));
+          }
+
+          batch.commit().catch(e => console.error("Error syncing desks:", e));
         }
       }
     });
@@ -156,13 +171,13 @@ export function useDesks(selectedDate: string) {
     setFutureReleases(prev => Array.from(new Set([...prev, ...dates])).sort());
     
     const batch = writeBatch(db);
-    dates.forEach(date => {
-      // Evitar duplicados si ya existe en este mes o en el futuro
-      if (!releases.some(r => r.deskId === deskId && r.date === date) && !futureReleases.includes(date)) {
-        const releaseRef = doc(collection(db, 'deskReleases'));
-        batch.set(releaseRef, { deskId, ownerId: user.uid, date });
-      }
-    });
+      dates.forEach(date => {
+        // Evitar duplicados si ya existe en este mes o en el futuro
+        if (!releases.some(r => r.ownerId === user.uid && r.date === date) && !futureReleases.includes(date)) {
+          const releaseRef = doc(collection(db, 'deskReleases'));
+          batch.set(releaseRef, { deskId, ownerId: user.uid, date });
+        }
+      });
     await batch.commit();
   };
 
@@ -172,16 +187,16 @@ export function useDesks(selectedDate: string) {
     await setDoc(deskRef, { ownerId: null }, { merge: true });
   };
 
-  const cancelReleaseByDate = async (deskId: string, date: string) => {
+  const cancelReleaseByDate = async (date: string) => {
     if (!user) return;
     
     // Actualización optimista
     setFutureReleases(prev => prev.filter(d => d !== date));
     
-    // Consultar todos los releases para esa fecha y ese desk
+    // Consultar todos los releases para esa fecha y ese usuario
     const q = query(
       collection(db, 'deskReleases'), 
-      where('deskId', '==', deskId),
+      where('ownerId', '==', user.uid),
       where('date', '==', date)
     );
     const snap = await getDocs(q);
@@ -228,6 +243,7 @@ export function useDesks(selectedDate: string) {
       batch.set(bookingRef, {
         deskId,
         userId: user.uid,
+        userName: user.displayName || user.email?.split('@')[0] || 'Compañero',
         date,
         ...(startTime ? { startTime } : {}),
         ...(endTime ? { endTime } : {}),
@@ -243,7 +259,7 @@ export function useDesks(selectedDate: string) {
 
   // Helper para saber el estado de un puesto en la fecha seleccionada
   const getDeskStatus = (desk: Desk) => {
-    const isReleased = releases.some(r => r.deskId === desk.id && r.date === selectedDate);
+    const isReleased = releases.some(r => r.ownerId === desk.ownerId && r.date === selectedDate);
     const booking = bookings.find(b => b.deskId === desk.id && b.date === selectedDate);
     
     const isMyHabitual = desk.ownerId === user?.uid;

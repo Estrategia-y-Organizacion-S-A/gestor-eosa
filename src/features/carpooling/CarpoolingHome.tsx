@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Car, Plus, MapPin, Clock, Users, Edit, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Car, Plus, Clock, Users, Edit, X, MapPin } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { clsx } from 'clsx';
 import { toast } from 'react-hot-toast';
+import { isHoliday } from '../../utils/holidays';
 import { useCarpooling, type CarpoolTrip } from './hooks/useCarpooling';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -73,19 +74,28 @@ export function CarpoolingHome() {
               const dateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
               const isSelected = dateStr === selectedDate;
               const hasTrips = allMonthTrips.some(t => t.date === dateStr);
+              
+              const dayOfWeek = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day).getDay();
+              const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+              const holidayInfo = isHoliday(dateStr);
+              const isNonWorking = isWeekend || holidayInfo.isHoliday;
 
               return (
                 <button 
                   key={day} 
                   onClick={() => setSelectedDate(dateStr)}
+                  disabled={isNonWorking}
+                  title={holidayInfo.isHoliday ? holidayInfo.name : ''}
                   className={clsx(
                     "py-2 rounded-lg relative font-medium transition-colors",
-                    isSelected ? "bg-brand-red text-white shadow-sm" : "hover:bg-gray-50",
-                    !isSelected && hasTrips && "text-brand-red font-bold"
+                    isNonWorking && !isSelected ? "text-gray-300 cursor-not-allowed" : "hover:bg-gray-50",
+                    isSelected && "bg-brand-red text-white shadow-sm",
+                    !isSelected && !isNonWorking && hasTrips && "text-brand-red font-bold",
+                    holidayInfo.isHoliday && !isWeekend && "bg-red-50 text-red-300"
                   )}
                 >
                   {day}
-                  {!isSelected && hasTrips && (
+                  {!isSelected && hasTrips && !isNonWorking && (
                     <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-brand-red rounded-full"></span>
                   )}
                 </button>
@@ -144,81 +154,122 @@ export function CarpoolingHome() {
                 const myBooking = bookings.find(b => b.tripId === trip.id && b.passengerId === user?.uid);
                 
                 return (
-                  <div key={trip.id} className="border border-gray-200 rounded-xl p-4 flex flex-col hover:border-gray-300 transition-colors bg-white">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2 text-gray-900 font-medium">
-                          <MapPin className="w-4 h-4 text-gray-400" />
-                          <span>{trip.origin}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-gray-500 text-sm ml-6 border-l-2 border-gray-200 pl-4 py-1">
-                          hacia
-                        </div>
-                        <div className="flex items-center gap-2 text-gray-900 font-medium">
-                          <MapPin className="w-4 h-4 text-brand-red" />
-                          <span>{trip.destination}</span>
-                        </div>
-                      </div>
-                      <div className="flex flex-col items-end gap-2">
-                        <div className="bg-gray-50 px-3 py-1.5 rounded-lg text-sm font-bold text-gray-700 flex items-center gap-1.5">
-                          <Clock className="w-4 h-4 text-gray-500" />
+                  <div key={trip.id} className="border border-gray-200 rounded-2xl p-5 flex flex-col hover:border-brand-red/30 hover:shadow-lg transition-all bg-white relative overflow-hidden group">
+                    
+                    {/* Cabecera: Hora y Asientos */}
+                    <div className="flex justify-between items-center mb-5 pb-4 border-b border-gray-100">
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-bold text-brand-red/70 uppercase tracking-wider mb-0.5 ml-7">Hora de salida</span>
+                        <div className="flex items-center gap-2 text-brand-red font-black text-2xl tracking-tight leading-none">
+                          <Clock className="w-5 h-5 text-brand-red/70" />
                           {trip.time}
                         </div>
+                      </div>
+                      <div className="flex gap-2">
                         {trip.availableSeats === 0 && (
-                          <span className="bg-red-100 text-red-700 text-xs font-bold px-2 py-1 rounded-md">LLENO</span>
+                          <span className="bg-red-50 text-red-700 text-xs font-bold px-2.5 py-1 rounded-full uppercase tracking-wider border border-red-100">LLENO</span>
                         )}
+                        <div className="bg-gray-50 border border-gray-200 px-2.5 py-1 rounded-full text-xs font-bold text-gray-700 flex items-center gap-1.5">
+                          <Users className="w-3.5 h-3.5 text-gray-400" />
+                          {trip.availableSeats} / {trip.totalSeats} libres
+                        </div>
                       </div>
                     </div>
                     
-                    {!isMyTrip && trip.driverName && (
-                      <div className="flex items-center gap-2 mb-4 text-sm text-gray-600">
-                        <div className="w-5 h-5 rounded-full bg-gray-200 text-gray-700 flex items-center justify-center text-[10px] font-bold">
-                          {trip.driverName.charAt(0).toUpperCase()}
+                    {/* Cuerpo: Ruta visual */}
+                    <div className="relative pl-3 py-1 mb-6">
+                      {/* Línea conectora */}
+                      <div className="absolute left-4 top-2 bottom-2 w-0 border-l-2 border-dashed border-gray-300 group-hover:border-brand-red/30 transition-colors"></div>
+                      
+                      {/* Origen */}
+                      <div className="relative flex items-center gap-4 mb-6">
+                        <div className="w-2.5 h-2.5 rounded-full border-2 border-gray-400 bg-white z-10"></div>
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Salida</span>
+                          <span className="text-base font-bold text-gray-900 leading-none">{trip.origin}</span>
                         </div>
-                        Conductor: <span className="font-medium">{trip.driverName}</span>
-                      </div>
-                    )}
-                    
-                    <div className="flex items-center justify-between mt-auto pt-4 border-t border-gray-100">
-                      <div className="flex items-center gap-2 text-sm">
-                        <Users className="w-4 h-4 text-gray-400" />
-                        <span className={trip.availableSeats === 0 ? 'text-red-500 font-medium' : 'text-gray-600'}>
-                          {trip.availableSeats} / {trip.totalSeats} libres
-                        </span>
                       </div>
                       
-                      {isMyTrip ? (
-                        <div className="flex items-center gap-3">
-                          <button 
-                            onClick={() => setEditingTrip(trip)}
-                            className="text-blue-600 text-sm font-medium hover:underline flex items-center gap-1"
-                          >
-                            <Edit className="w-4 h-4" />
-                            Editar
-                          </button>
-                          <button 
-                            onClick={() => cancelTrip(trip.id)}
-                            className="text-red-500 text-sm font-medium hover:underline"
-                          >
-                            Cancelar Viaje
-                          </button>
+                      {/* Destino */}
+                      <div className="relative flex items-center gap-4">
+                        <div className="w-2.5 h-2.5 rounded-full bg-brand-red z-10 shadow-[0_0_0_2px_white,0_0_0_4px_#fca5a5]"></div>
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Llegada</span>
+                          <span className="text-base font-bold text-gray-900 leading-none">{trip.destination}</span>
                         </div>
-                      ) : myBooking ? (
-                        <button 
-                          onClick={() => cancelBooking(myBooking.id, trip.id)}
-                          className="bg-gray-100 text-gray-700 px-4 py-1.5 rounded-md text-sm font-medium hover:bg-gray-200"
-                        >
-                          Anular reserva
-                        </button>
-                      ) : (
-                        <button 
-                          onClick={() => bookSeat(trip.id)}
-                          disabled={trip.availableSeats === 0}
-                          className="bg-brand-red text-white px-4 py-1.5 rounded-md text-sm font-medium hover:bg-[#A31C30] disabled:bg-gray-300 disabled:cursor-not-allowed"
-                        >
-                          Reservar plaza
-                        </button>
+                      </div>
+                      
+                      {/* Paradas intermedias / Info (Opcional) */}
+                      {trip.stops && (
+                        <div className="mt-5 ml-2 pl-4 py-2 border-l-2 border-brand-red/20">
+                          <div className="bg-orange-50/50 p-3 rounded-xl border border-orange-100/50 flex gap-2.5">
+                            <MapPin className="w-4 h-4 text-orange-400 flex-shrink-0 mt-0.5" />
+                            <div className="flex flex-col">
+                              <span className="text-[10px] font-bold text-orange-800/60 uppercase tracking-wider mb-1">Hace paradas / Info</span>
+                              <span className="text-xs text-orange-900/80 leading-relaxed font-medium">{trip.stops}</span>
+                            </div>
+                          </div>
+                        </div>
                       )}
+                    </div>
+                    
+                    {/* Footer: Conductor y Acciones */}
+                    <div className="flex items-center justify-between mt-auto pt-4 bg-gray-50/50 -mx-5 -mb-5 p-5 border-t border-gray-100">
+                      
+                      {/* Conductor */}
+                      <div className="flex items-center gap-3">
+                        {!isMyTrip && trip.driverName ? (
+                          <>
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-red to-orange-500 text-white flex items-center justify-center text-xs font-bold shadow-sm">
+                              {trip.driverName.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Conductor</span>
+                              <span className="text-sm font-bold text-gray-700 leading-none">{trip.driverName}</span>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="text-sm font-bold text-brand-red bg-brand-red/10 px-3 py-1.5 rounded-lg border border-brand-red/20">
+                            Tu viaje
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Acciones */}
+                      <div>
+                        {isMyTrip ? (
+                          <div className="flex items-center gap-3">
+                            <button 
+                              onClick={() => setEditingTrip(trip)}
+                              className="text-gray-600 text-sm font-bold hover:text-blue-600 transition-colors flex items-center gap-1 bg-white border border-gray-200 px-3 py-1.5 rounded-lg shadow-sm"
+                            >
+                              <Edit className="w-4 h-4" />
+                              Editar
+                            </button>
+                            <button 
+                              onClick={() => cancelTrip(trip.id)}
+                              className="text-red-600 text-sm font-bold hover:bg-red-50 transition-colors bg-white border border-red-200 px-3 py-1.5 rounded-lg shadow-sm"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        ) : myBooking ? (
+                          <button 
+                            onClick={() => cancelBooking(myBooking.id, trip.id)}
+                            className="bg-white text-gray-700 border border-gray-300 px-4 py-2 rounded-lg text-sm font-bold hover:bg-gray-50 shadow-sm transition-all"
+                          >
+                            Anular reserva
+                          </button>
+                        ) : (
+                          <button 
+                            onClick={() => bookSeat(trip.id)}
+                            disabled={trip.availableSeats === 0}
+                            className="bg-brand-red text-white px-5 py-2 rounded-lg text-sm font-bold hover:bg-[#A31C30] hover:shadow-md disabled:bg-gray-300 disabled:cursor-not-allowed disabled:shadow-none transition-all"
+                          >
+                            Reservar plaza
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );

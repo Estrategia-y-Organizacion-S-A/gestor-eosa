@@ -41,10 +41,12 @@ export function CarpoolingGuideModal({ isOpen, onClose }: CarpoolingGuideModalPr
           <section className="space-y-3">
             <h3 className="font-bold text-lg text-gray-900 flex items-center gap-2">
               <MapPin className="w-5 h-5 text-green-500" />
-              2. Publicar un Viaje
+              2. Publicar un Viaje (Ida y Vuelta)
             </h3>
             <p className="text-gray-600 leading-relaxed text-sm">
-              Si vienes a la oficina en coche y tienes plazas libres, puedes hacer clic en el botón <strong>"Publicar viaje"</strong> arriba a la derecha. Solo tendrás que rellenar tu origen, destino, hora de salida y cuántas plazas vacías ofreces. ¡Tus compañeros te lo agradecerán!
+              Si vienes a la oficina en coche y tienes plazas libres, haz clic en <strong>"Publicar viaje"</strong>. Los viajes ahora están <strong>separados por trayectos (solo ida o solo vuelta)</strong> para dar máxima flexibilidad. 
+              <br/><br/>
+              Podrás rellenar el origen, destino, hora de salida, plazas y añadir <strong>paradas intermedias o detalles</strong> si vas a recoger a alguien por el camino. Además, hemos añadido una opción para <strong>crear el viaje de vuelta automáticamente</strong> invirtiendo el origen y el destino con un solo clic.
             </p>
           </section>
 
@@ -55,13 +57,13 @@ export function CarpoolingGuideModal({ isOpen, onClose }: CarpoolingGuideModalPr
             </h3>
             <div className="bg-gray-50 p-4 rounded-xl space-y-3 text-sm text-gray-600">
               <p>
-                <strong>Para reservar:</strong> Busca un viaje en la pestaña "Viajes del día" y haz clic en "Reservar plaza". Si el coche se llena, el botón se desactivará automáticamente.
+                <strong>Máxima flexibilidad:</strong> Como los viajes son trayectos únicos, puedes apuntarte a la ida con un compañero y volver con otro distinto. Solo busca el trayecto que te encaje y pulsa en "Reservar plaza".
               </p>
               <p>
-                <strong>Pestaña "Mis reservas":</strong> Aquí verás todos los coches a los que te has apuntado. Si finalmente no vas a viajar, recuerda usar el botón "Anular reserva" para liberar la plaza y que otro compañero pueda usarla.
+                <strong>Mis reservas:</strong> Aquí verás todos los trayectos a los que te has apuntado. Si finalmente no vas a viajar, recuerda usar el botón "Anular reserva" para liberar la plaza y que otro compañero pueda usarla.
               </p>
               <p>
-                <strong>Pestaña "Mis viajes publicados":</strong> Tu panel de control como conductor. Podrás ver los viajes que has creado y cancelarlos si te surge algún imprevisto (tus pasajeros perderán la reserva automáticamente).
+                <strong>Mis viajes publicados:</strong> Tu panel de control como conductor. Podrás ver los trayectos que has creado y cancelarlos si te surge algún imprevisto (tus pasajeros perderán la reserva automáticamente).
               </p>
             </div>
           </section>

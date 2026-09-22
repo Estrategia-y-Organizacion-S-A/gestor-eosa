@@ -32,7 +32,7 @@ export function DesksLayout() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 mb-1 flex items-center gap-3">
-            Reserva de Mesas
+            Reserva de Puestos
             <button 
               onClick={() => setIsGuideOpen(true)}
               className="text-gray-400 hover:text-brand-red transition-colors"
@@ -55,7 +55,7 @@ export function DesksLayout() {
       <div className="flex flex-col lg:flex-row gap-6 items-start">
         
         {/* Sidebar */}
-        <div className="w-full lg:w-72 flex-shrink-0 space-y-6">
+        <div className="w-full lg:w-72 shrink-0 space-y-6">
           <DeskCalendar 
             selectedDate={selectedDate}
             onSelectDate={setSelectedDate}
@@ -92,7 +92,7 @@ export function DesksLayout() {
                       <li key={idx} className="flex justify-between items-center bg-orange-50/50 p-1.5 rounded border border-orange-200/50">
                         <span>{new Date(d).toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short' })}</span>
                         <button 
-                          onClick={() => cancelReleaseByDate(myHabitualDesk.id, d)}
+                          onClick={() => cancelReleaseByDate(d)}
                           className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded transition-colors"
                           title="Anular ausencia"
                         >
@@ -109,7 +109,7 @@ export function DesksLayout() {
               <div className="space-y-2">
                 {getDeskStatus(myHabitualDesk) === 'available' ? (
                   <button 
-                    onClick={() => cancelReleaseByDate(myHabitualDesk.id, selectedDate)}
+                    onClick={() => cancelReleaseByDate(selectedDate)}
                     className="w-full bg-white border border-blue-200 hover:bg-blue-50 text-blue-700 py-2 rounded-md text-sm font-medium transition-colors"
                   >
                     Anular ausencia del {selectedDate}
@@ -171,7 +171,7 @@ export function DesksLayout() {
         </div>
 
         {/* Map */}
-        <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-100 p-8 min-h-[600px] flex flex-col relative w-full overflow-x-auto">
+        <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-100 p-8 min-h-150 flex flex-col relative w-full overflow-x-auto">
           <OfficeMap selectedDate={selectedDate} futureReleases={futureReleases} />
         </div>
         

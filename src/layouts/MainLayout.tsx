@@ -12,7 +12,7 @@ export function MainLayout() {
   const navItems = [
     { to: '/', label: 'Dashboard', icon: LayoutDashboard },
     { to: '/carpooling', label: 'Viajes', icon: Car },
-    { to: '/desks', label: 'Mesas', icon: CalendarDays },
+    { to: '/desks', label: 'Puestos', icon: CalendarDays },
     { to: '/gadgets', label: 'Gadgets', icon: Wrench },
   ];
 

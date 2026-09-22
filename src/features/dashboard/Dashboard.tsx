@@ -10,7 +10,7 @@ export function Dashboard() {
     <div className="space-y-8 max-w-7xl mx-auto">
       
       {/* Welcome Banner */}
-      <div className="bg-gradient-to-r from-gray-900 to-gray-800 rounded-2xl p-8 md:p-10 shadow-lg text-white relative overflow-hidden">
+      <div className="bg-linear-to-r from-gray-900 to-gray-800 rounded-2xl p-8 md:p-10 shadow-lg text-white relative overflow-hidden">
         <div className="relative z-10">
           <h1 className="text-3xl md:text-4xl font-bold mb-3">
             ¡Te damos la bienvenida, {user?.displayName || user?.email?.split('@')[0] || 'compañero/a'}!
@@ -30,15 +30,15 @@ export function Dashboard() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           
-          {/* Reserva de Mesas */}
+          {/* Reserva de Puestos */}
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow flex flex-col overflow-hidden group">
             <div className="p-8 pb-6 flex-1">
               <div className="w-14 h-14 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 mb-6 group-hover:scale-110 transition-transform">
                 <Monitor className="w-7 h-7" />
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">Reserva de Mesas</h3>
+              <h3 className="text-xl font-bold text-gray-900 mb-3">Reserva de Puestos</h3>
               <p className="text-gray-600 text-sm leading-relaxed mb-6">
-                Organiza tu asistencia a la oficina. Fija tu puesto habitual permanente o reserva una mesa libre para días puntuales. No olvides liberar tu silla cuando teletrabajes o estés de vacaciones.
+                Organiza tu asistencia a la oficina. Fija tu puesto habitual permanente o reserva un puesto libre para días puntuales. No olvides liberar tu silla cuando teletrabajes o estés de vacaciones.
               </p>
               <ul className="space-y-2 text-sm text-gray-500 mb-6">
                 <li className="flex items-center gap-2"><div className="w-1.5 h-1.5 bg-blue-400 rounded-full"></div> Mapa visual de la oficina</li>
@@ -50,7 +50,7 @@ export function Dashboard() {
                 onClick={() => navigate('/desks')}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg transition-colors"
               >
-                Abrir Mapa de Mesas
+                Abrir Mapa de Puestos
               </button>
             </div>
           </div>

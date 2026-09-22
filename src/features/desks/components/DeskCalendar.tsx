@@ -1,5 +1,6 @@
 import clsx from 'clsx';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { isHoliday } from '../../../utils/holidays';
 
 interface DeskCalendarProps {
   selectedDate: string; // YYYY-MM-DD
@@ -48,21 +49,29 @@ export function DeskCalendar({ selectedDate, onSelectDate, releasedDates, booked
     // Si es fin de semana (sábado=6, domingo=0 en getDay)
     const dayOfWeek = new Date(year, month, d).getDay();
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+    const holidayInfo = isHoliday(dateStr);
+    const isNonWorking = isWeekend || holidayInfo.isHoliday;
+
+    let tooltip = "";
+    if (holidayInfo.isHoliday) tooltip = holidayInfo.name || "Festivo";
+    else if (isReleased) tooltip = "Puesto liberado";
+    else if (isBooked) tooltip = "Reserva temporal";
 
     days.push(
       <button
         key={d}
         onClick={() => onSelectDate(dateStr)}
-        disabled={isWeekend}
+        disabled={isNonWorking}
         className={clsx(
           "h-8 w-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors",
-          isWeekend ? "text-gray-300 cursor-not-allowed" : "hover:bg-gray-100",
-          !isWeekend && !isSelected && !isReleased && !isBooked && "text-gray-700",
-          !isWeekend && isReleased && !isSelected && "bg-orange-100 text-orange-700",
-          !isWeekend && isBooked && !isSelected && "bg-blue-100 text-blue-700",
+          isNonWorking ? "text-gray-300 cursor-not-allowed" : "hover:bg-gray-100",
+          !isNonWorking && !isSelected && !isReleased && !isBooked && "text-gray-700",
+          !isNonWorking && isReleased && !isSelected && "bg-orange-100 text-orange-700",
+          !isNonWorking && isBooked && !isSelected && "bg-blue-100 text-blue-700",
+          holidayInfo.isHoliday && !isWeekend && "bg-red-50 text-red-300",
           isSelected && "bg-brand-red text-white hover:bg-[#A31C30]"
         )}
-        title={isReleased ? "Puesto liberado" : isBooked ? "Reserva temporal" : ""}
+        title={tooltip}
       >
         {d}
       </button>

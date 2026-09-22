@@ -9,12 +9,13 @@ function DeskGroup({ name, x, y, width, height, isVertical = false, variant = 'a
   return (
     <div
       className={clsx(
-        "absolute border rounded-md flex items-center justify-center font-bold text-sm shadow-sm",
-        variant === 'amber' ? "border-amber-300 bg-amber-50 text-amber-600" : "border-red-400 bg-red-50 text-red-600"
+        "absolute border rounded-md flex items-center justify-center font-bold text-xs text-center leading-tight shadow-sm overflow-visible",
+        variant === 'amber' ? "border-amber-300 bg-amber-50 text-amber-600" : "border-red-400 bg-red-50 text-red-600",
+        !isVertical && "px-1"
       )}
       style={{ left: x, top: y, width, height }}
     >
-      <span className={isVertical ? "rotate-90 whitespace-nowrap" : ""}>{name}</span>
+      <span className={isVertical ? "-rotate-90 whitespace-nowrap" : ""}>{name}</span>
     </div>
   );
 }
@@ -23,7 +24,7 @@ function Room({ name, x, y, width, height, variant = 'gray' }: { name: string; x
   return (
     <div
       className={clsx(
-        "absolute border rounded-md flex items-center justify-center font-bold text-sm text-center px-4 shadow-sm",
+        "absolute border rounded-md flex items-center justify-center font-bold text-xs text-center px-2 leading-tight shadow-sm",
         variant === 'gray' ? "border-gray-300 bg-gray-50 text-gray-500" : "border-green-300 bg-green-50 text-green-600"
       )}
       style={{ left: x, top: y, width, height }}
@@ -34,7 +35,7 @@ function Room({ name, x, y, width, height, variant = 'gray' }: { name: string; x
 }
 
 export function OfficeMap({ selectedDate, futureReleases }: { selectedDate: string, futureReleases: string[] }) {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const { confirm } = useConfirm();
   const { desks, getDeskStatus, claimHabitualDesk, releaseHabitualDesk, abandonHabitualDesk, bookDesk, myHabitualDesk, loading, cancelReleaseByDate, releases, bookings, cancelBooking } = useDesks(selectedDate);
   const [selectedDesk, setSelectedDesk] = useState<Desk | null>(null);
@@ -59,28 +60,32 @@ export function OfficeMap({ selectedDate, futureReleases }: { selectedDate: stri
   };
 
   return (
-    <div className="flex-1 min-w-[800px] relative">
+    <div className="flex-1 min-w-200 relative">
       
       {/* Background blocks */}
-      <DeskGroup name="Mesa A" x={60} y={60} width={120} height={40} />
-      <DeskGroup name="Mesa B" x={240} y={60} width={120} height={40} />
-      <Room name="OFICINA MANUEL" x={700} y={25} width={120} height={80} />
-      <Room name="OFICINA ANTONIO" x={40} y={180} width={120} height={80} />
+      <DeskGroup name="Mesa E - Comunicación" x={60} y={60} width={120} height={40} />
+      <DeskGroup name="Mesa C - Proyectos" x={240} y={60} width={120} height={40} />
+      <Room name="MESA J - Manuel" x={700} y={25} width={120} height={80} />
+      <Room name="MESA I - Antonio" x={40} y={180} width={120} height={80} />
       
       {/* Sala de Reuniones No Interactiva */}
-      <Room name="" x={40} y={270} width={120} height={90} variant="gray" />
+      <Room name="MESA F - Sala" x={40} y={270} width={120} height={90} variant="gray" />
 
       {/* Mesa Entrada (Recibidor) */}
-      <DeskGroup name="Mesa Entrada" x={420} y={60} width={120} height={40} variant="red" />
+      <DeskGroup name="Mesa G - Administración" x={420} y={60} width={120} height={40} variant="red" />
+      
+      {/* Coworking (Cabecera de Mesa D) */}
+      <DeskGroup name="MESA M - Coworking" x={210} y={210} width={60} height={60} />
 
-      <DeskGroup name="Mesa C" x={220} y={230} width={40} height={120} isVertical />
-      <DeskGroup name="Mesa D" x={480} y={230} width={40} height={150} isVertical />
-      <DeskGroup name="Mesa E" x={600} y={258} width={40} height={90} isVertical />
-      <Room name="OFICINA ADOLFO" x={700} y={180} width={120} height={170} />
+      <DeskGroup name="Mesa D - Proyectos europeos" x={220} y={290} width={40} height={120} isVertical />
+      <DeskGroup name="Mesa B - Turismo y P.Urbana" x={480} y={230} width={40} height={150} isVertical />
+      <DeskGroup name="Mesa A - Estudios y TIC" x={600} y={258} width={40} height={90} isVertical />
+
+      <Room name="MESA K - Adolfo" x={700} y={180} width={120} height={170} />
 
       <div className="absolute" style={{ left: 700, top: 370 }}>
-        <div className="border border-gray-300 bg-gray-100 text-gray-500 font-bold text-sm px-4 py-2 rounded-md mb-1 text-center">
-          Mesa Rodri
+        <div className="border border-gray-300 bg-gray-100 text-gray-500 font-bold text-xs px-2 py-2 rounded-md mb-1 text-center">
+          MESA H - Rodri
         </div>
         <div className="text-xs text-gray-400 text-center">No reservable</div>
       </div>
@@ -159,7 +164,7 @@ export function OfficeMap({ selectedDate, futureReleases }: { selectedDate: stri
                     {getDeskStatus(selectedDesk) === 'available' ? (
                        <button 
                         onClick={async () => {
-                          const release = releases.find(r => r.deskId === selectedDesk.id && r.date === selectedDate);
+                          const release = releases.find(r => r.ownerId === selectedDesk.ownerId && r.date === selectedDate);
                           if (release) {
                             const hasTempBooking = bookings.find(b => b.date === selectedDate && b.userId === user?.uid && b.deskId !== selectedDesk.id);
                             if (hasTempBooking) {
@@ -169,7 +174,7 @@ export function OfficeMap({ selectedDate, futureReleases }: { selectedDate: stri
                               });
                               if (!isConfirmed) return;
                             }
-                            cancelReleaseByDate(selectedDesk.id, selectedDate);
+                            cancelReleaseByDate(selectedDate);
                           }
                           setSelectedDesk(null);
                         }}
@@ -225,7 +230,7 @@ export function OfficeMap({ selectedDate, futureReleases }: { selectedDate: stri
                         {(() => {
                           // Verificar si el usuario ha liberado su puesto habitual para esta fecha específica
                           const isMyHabitualReleasedToday = myHabitualDesk 
-                            ? releases.some(r => r.deskId === myHabitualDesk.id && r.date === selectedDate)
+                            ? releases.some(r => r.ownerId === myHabitualDesk.ownerId && r.date === selectedDate)
                             : false;
                           
                           // 1. Incongruencia: Evitar que el usuario reserve temporalmente su propia mesa
@@ -242,7 +247,7 @@ export function OfficeMap({ selectedDate, futureReleases }: { selectedDate: stri
                           if (myHabitualDesk && !isMyHabitualReleasedToday) {
                             return (
                               <p className="text-xs text-red-600 bg-red-50 p-2 rounded mb-2 border border-red-100">
-                                Ya tienes tu puesto habitual asignado para este día. Si deseas reservar este puesto, primero debes notificar que "No vas a ir" en tu mesa habitual.
+                                Ya tienes tu puesto habitual asignado para este día. Si deseas reservar este puesto, primero debes notificar que "No vas a ir" en tu puesto habitual.
                               </p>
                             );
                           }
@@ -272,17 +277,17 @@ export function OfficeMap({ selectedDate, futureReleases }: { selectedDate: stri
                                         curr.setUTCDate(curr.getUTCDate() + 1);
                                       }
                                       
-                                      // 1. Validar que la mesa está libre en todos esos días
+                                      // 1. Validar que la mesa esté libre en todos esos días
                                       const unavailableDates = dates.filter(d => {
                                         if (selectedDesk.ownerId) {
-                                          const isReleased = releases.some(r => r.deskId === selectedDesk.id && r.date === d);
+                                          const isReleased = releases.some(r => r.ownerId === selectedDesk.ownerId && r.date === d);
                                           if (!isReleased) return true;
                                         }
                                         return bookings.some(b => b.deskId === selectedDesk.id && b.date === d);
                                       });
 
                                       if (unavailableDates.length > 0) {
-                                        toast.error(`La mesa no está libre los días: ${unavailableDates.join(', ')}`);
+                                        toast.error(`El puesto no está libre los días: ${unavailableDates.join(', ')}`);
                                         return;
                                       }
 
@@ -300,7 +305,7 @@ export function OfficeMap({ selectedDate, futureReleases }: { selectedDate: stri
                                         bookings.some(b => b.userId === user?.uid && b.date === d && desks.find(desk => desk.id === b.deskId)?.type !== 'meeting_room')
                                       );
                                       if (alreadyBookedDates.length > 0) {
-                                        toast.error(`Ya tienes otra mesa reservada los días: ${alreadyBookedDates.join(', ')}`);
+                                        toast.error(`Ya tienes otro puesto reservado los días: ${alreadyBookedDates.join(', ')}`);
                                         return;
                                       }
 
@@ -332,14 +337,14 @@ export function OfficeMap({ selectedDate, futureReleases }: { selectedDate: stri
                                   const date = selectedDate;
                                   // 1. Validar si está libre
                                   if (selectedDesk.ownerId) {
-                                    const isReleased = releases.some(r => r.deskId === selectedDesk.id && r.date === date);
+                                    const isReleased = releases.some(r => r.ownerId === selectedDesk.ownerId && r.date === date);
                                     if (!isReleased) {
-                                      toast.error(`La mesa no está libre el día: ${date}`);
+                                      toast.error(`El puesto no está libre el día: ${date}`);
                                       return;
                                     }
                                   }
                                   if (bookings.some(b => b.deskId === selectedDesk.id && b.date === date)) {
-                                    toast.error(`La mesa ya está reservada el día: ${date}`);
+                                    toast.error(`El puesto ya está reservado el día: ${date}`);
                                     return;
                                   }
                                   // 2. Validar si tiene habitual
@@ -351,7 +356,7 @@ export function OfficeMap({ selectedDate, futureReleases }: { selectedDate: stri
                                   // 3. Validar si ya tiene otra reserva
                                   const alreadyBooked = bookings.some(b => b.userId === user?.uid && b.date === date && desks.find(desk => desk.id === b.deskId)?.type !== 'meeting_room');
                                   if (alreadyBooked) {
-                                    toast.error(`Ya tienes otra mesa reservada el día: ${date}`);
+                                    toast.error(`Ya tienes otro puesto reservado el día: ${date}`);
                                     return;
                                   }
 
@@ -386,9 +391,39 @@ export function OfficeMap({ selectedDate, futureReleases }: { selectedDate: stri
                         )}
                       </>
                     )}
-                    {getDeskStatus(selectedDesk) === 'booked' && (
-                      <p className="text-sm text-red-500">Este puesto no está disponible.</p>
-                    )}
+                      {getDeskStatus(selectedDesk) === 'booked' && (
+                        <div className="bg-red-50 p-3 rounded-lg border border-red-100 mb-2">
+                          <p className="text-sm font-medium text-red-800">No disponible</p>
+                          <p className="text-xs text-red-600 mt-1">
+                            Reservado por: <span className="font-bold">{
+                              bookings.find(b => b.deskId === selectedDesk.id && b.date === selectedDate)?.userName || 
+                              selectedDesk.ownerName || 
+                              'Usuario Desconocido'
+                            }</span>
+                          </p>
+                          {isAdmin && bookings.find(b => b.deskId === selectedDesk.id && b.date === selectedDate) && (
+                            <button
+                              onClick={async () => {
+                                const booking = bookings.find(b => b.deskId === selectedDesk.id && b.date === selectedDate);
+                                if (booking) {
+                                  const isConfirmed = await confirm({
+                                    message: "¿Estás seguro de que deseas forzar la cancelación de esta reserva temporal como administrador?",
+                                    confirmText: "Sí, cancelar reserva"
+                                  });
+                                  if (isConfirmed) {
+                                    cancelBooking(booking.id);
+                                    setSelectedDesk(null);
+                                    toast.success('Reserva temporal cancelada forzosamente');
+                                  }
+                                }
+                              }}
+                              className="w-full mt-3 bg-red-100 hover:bg-red-200 text-red-700 py-1.5 rounded-md text-xs font-medium border border-red-200 transition-colors"
+                            >
+                              Cancelar reserva (Admin)
+                            </button>
+                          )}
+                        </div>
+                      )}
                   </>
                 )}
               </>
