@@ -5,8 +5,9 @@ import { auth, db } from '../../firebase/config';
 import { LogIn, UserPlus, CheckCircle2, XCircle, Eye, EyeOff } from 'lucide-react';
 import { clsx } from 'clsx';
 import toast from 'react-hot-toast';
+import { GoogleReCaptchaProvider, useGoogleReCaptcha } from "react-google-recaptcha-v3";
 
-export function Login() {
+function LoginForm() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [confirmEmail, setConfirmEmail] = useState('');
@@ -17,12 +18,27 @@ export function Login() {
   const [isRegister, setIsRegister] = useState(false);
   const [error, setError] = useState('');
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const { executeRecaptcha } = useGoogleReCaptcha();
 
   const isValidEmail = (e: string) => /^[^\s@]+@eosa\.com$/i.test(e);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    
+    if (!executeRecaptcha) {
+      toast.error('reCAPTCHA no está listo todavía');
+      return;
+    }
+    
+    try {
+      const token = await executeRecaptcha('auth_action');
+      if (!token) throw new Error('reCAPTCHA failed');
+    } catch (err) {
+      toast.error('Error validando reCAPTCHA');
+      return;
+    }
+
     
     if (!isValidEmail(email)) {
       return setError('El correo debe terminar en @eosa.com.');
@@ -308,6 +324,8 @@ export function Login() {
               </div>
             )}
 
+
+
             <div className="pt-2">
               <button
                 type="submit"
@@ -361,5 +379,13 @@ export function Login() {
         </div>
       )}
     </div>
+  );
+}
+
+export function Login() {
+  return (
+    <GoogleReCaptchaProvider reCaptchaKey="6Ldeb8wtAAAAAHabAuB8njWHe9gSljJg3OhKPZMl">
+      <LoginForm />
+    </GoogleReCaptchaProvider>
   );
 }
