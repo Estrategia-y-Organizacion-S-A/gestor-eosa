@@ -7,6 +7,7 @@ import {
   Building2, Car, Laptop, Sparkles, ShieldCheck, ArrowRight
 } from 'lucide-react';
 import { clsx } from 'clsx';
+import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { GoogleReCaptchaProvider, useGoogleReCaptcha } from "react-google-recaptcha-v3";
 
@@ -141,7 +142,7 @@ function LoginForm() {
         
         {/* Marca de agua geométrica institucional basada en el isotipo de EOSA */}
         <svg
-          className="absolute right-0 bottom-0 w-[500px] h-[500px] text-brand-red/[0.035] pointer-events-none translate-x-1/4 translate-y-1/4"
+          className="absolute right-0 bottom-0 w-125 h-125 text-brand-red/[0.035] pointer-events-none translate-x-1/4 translate-y-1/4"
           viewBox="0 0 200 200"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
@@ -159,13 +160,13 @@ function LoginForm() {
           <img src="/logo.png" alt="EOSA Estrategia y Organización" className="h-12 w-auto mb-6" />
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-50 border border-rose-200/70 text-[10px] font-bold uppercase tracking-wider text-brand-red mb-4">
             <Sparkles className="w-3.5 h-3.5 text-brand-red" />
-            <span>Consultoría Estratégica e Innovadora</span>
+            <span>Estrategia y Organización S.A.</span>
           </div>
           <h1 className="text-2xl xl:text-3xl font-black text-gray-900 tracking-tight leading-snug">
-            Plataforma unificada para el equipo de profesionales de EOSA.
+            Plataforma para el equipo de profesionales de EOSA.
           </h1>
           <p className="mt-3 text-sm text-gray-600 leading-relaxed max-w-md">
-            Coordina tu jornada presencial, organiza trayectos compartidos entre sedes y gestiona los recursos de la empresa con máxima agilidad y sostenibilidad.
+            Coordina tu jornada presencial, organiza trayectos y gestiona los gadgets de la empresa con agilidad.
           </p>
         </div>
 
@@ -191,7 +192,7 @@ function LoginForm() {
             <div>
               <h3 className="text-xs font-bold text-gray-900">Movilidad Compartida</h3>
               <p className="text-[11px] text-gray-500 leading-snug mt-0.5">
-                Carpooling entre compañeros para visitas a clientes, sedes de Vigo y Santiago, o viajes diarios.
+                Carpooling entre compañeros para visitas a clientes, desplazamientos de trabajo o viajes diarios.
               </p>
             </div>
           </div>
@@ -488,9 +489,15 @@ function LoginForm() {
           </div>
 
           {/* Pie de Página */}
-          <div className="mt-6 text-center text-xs text-gray-400">
-            <p>© {new Date().getFullYear()} EOSA (Estrategia y Organización, S.A.)</p>
-            <p className="mt-1 text-[11px] text-gray-400">Portal interno de uso exclusivo para profesionales de EOSA.</p>
+          <div className="mt-6 text-center text-xs text-gray-400 space-y-2">
+            <div className="flex flex-wrap items-center justify-center gap-3 text-[11px] font-semibold text-gray-500">
+              <Link to="/aviso-legal" className="hover:text-brand-red transition-colors">Aviso Legal</Link>
+              <span>·</span>
+              <Link to="/privacidad" className="hover:text-brand-red transition-colors">Privacidad</Link>
+              <span>·</span>
+              <Link to="/cookies" className="hover:text-brand-red transition-colors">Cookies</Link>
+            </div>
+            <p>© {new Date().getFullYear()} EOSA (Estrategia y Organización, S.A.) · Portal de uso interno</p>
           </div>
 
         </div>

@@ -16,7 +16,7 @@ export function CarpoolingLayout() {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="text-[10px] font-bold uppercase tracking-wider text-brand-red bg-rose-50 px-2.5 py-0.5 rounded-full border border-rose-200/60">
-              Movilidad Sostenible · EOSA
+              Movilidad · EOSA
             </span>
             <button 
               onClick={() => setIsGuideOpen(true)}

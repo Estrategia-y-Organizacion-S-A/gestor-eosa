@@ -6,6 +6,7 @@ import { ConfirmProvider } from './contexts/ConfirmContext';
 import { SystemSettingsProvider } from './contexts/SystemSettingsContext';
 
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { CookieBanner } from './components/CookieBanner';
 
 const Dashboard = lazy(() => import('./features/dashboard/Dashboard').then(m => ({ default: m.Dashboard })));
 const CarpoolingLayout = lazy(() => import('./features/carpooling/CarpoolingLayout').then(m => ({ default: m.CarpoolingLayout })));
@@ -15,6 +16,12 @@ const GadgetsLayout = lazy(() => import('./features/gadgets/GadgetsLayout').then
 const Login = lazy(() => import('./features/auth/Login').then(m => ({ default: m.Login })));
 const ProfileSettings = lazy(() => import('./features/profile/ProfileSettings').then(m => ({ default: m.ProfileSettings })));
 const AdminPanel = lazy(() => import('./features/admin/AdminPanel').then(m => ({ default: m.AdminPanel })));
+
+// Páginas Legales
+const LegalRouteWrapper = lazy(() => import('./features/legal/LegalRouteWrapper').then(m => ({ default: m.LegalRouteWrapper })));
+const AvisoLegal = lazy(() => import('./features/legal/AvisoLegal').then(m => ({ default: m.AvisoLegal })));
+const PoliticaPrivacidad = lazy(() => import('./features/legal/PoliticaPrivacidad').then(m => ({ default: m.PoliticaPrivacidad })));
+const PoliticaCookies = lazy(() => import('./features/legal/PoliticaCookies').then(m => ({ default: m.PoliticaCookies })));
 
 function RouteFallback() {
   return (
@@ -55,10 +62,21 @@ function App() {
       <AuthProvider>
         <SystemSettingsProvider>
           <BrowserRouter>
+            <CookieBanner />
             <Suspense fallback={<RouteFallback />}>
               <Routes>
                 <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
                 
+                {/* Rutas Legales Universales (accesibles de forma pública y autenticada) */}
+                <Route element={<LegalRouteWrapper />}>
+                  <Route path="/aviso-legal" element={<AvisoLegal />} />
+                  <Route path="/privacidad" element={<PoliticaPrivacidad />} />
+                  <Route path="/politica-de-privacidad" element={<Navigate to="/privacidad" replace />} />
+                  <Route path="/cookies" element={<PoliticaCookies />} />
+                  <Route path="/politica-de-cookies" element={<Navigate to="/cookies" replace />} />
+                </Route>
+
+                {/* Rutas Protegidas de la Aplicación */}
                 <Route path="/" element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
                   <Route index element={<Dashboard />} />
                   <Route path="carpooling" element={<CarpoolingLayout />}>

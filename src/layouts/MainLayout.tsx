@@ -6,6 +6,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useSystemSettings } from '../contexts/SystemSettingsContext';
 import { NotificationsDropdown } from '../components/NotificationsDropdown';
 
+import { Footer } from '../components/Footer';
+
 export function MainLayout() {
   const location = useLocation();
   const { user, isAdmin, canManageGadgets, logout } = useAuth();
@@ -121,6 +123,8 @@ export function MainLayout() {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Outlet />
       </main>
+
+      <Footer />
     </div>
   );
 }
