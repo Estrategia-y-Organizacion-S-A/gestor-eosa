@@ -1,19 +1,30 @@
-import { Outlet, NavLink, useLocation } from 'react-router-dom';
+import { Outlet, NavLink, Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Car, CalendarDays, Wrench, LogOut, Shield } from 'lucide-react';
 import { clsx } from 'clsx';
 import { Toaster } from 'react-hot-toast';
 import { useAuth } from '../contexts/AuthContext';
+import { useSystemSettings } from '../contexts/SystemSettingsContext';
 import { NotificationsDropdown } from '../components/NotificationsDropdown';
 
 export function MainLayout() {
   const location = useLocation();
-  const { user, isAdmin, logout } = useAuth();
+  const { user, isAdmin, canManageGadgets, logout } = useAuth();
+  const { isGadgetsMaintenance } = useSystemSettings();
+
+  const canAccessGadgets = !isGadgetsMaintenance || canManageGadgets;
   
   const navItems = [
     { to: '/', label: 'Dashboard', icon: LayoutDashboard },
     { to: '/carpooling', label: 'Viajes', icon: Car },
     { to: '/desks', label: 'Puestos', icon: CalendarDays },
-    { to: '/gadgets', label: 'Gadgets', icon: Wrench },
+    ...(canAccessGadgets ? [
+      { 
+        to: '/gadgets', 
+        label: 'Gadgets', 
+        icon: Wrench,
+        badge: (isGadgetsMaintenance && canManageGadgets) ? 'Mantenimiento' : null
+      }
+    ] : []),
   ];
 
   return (
@@ -23,10 +34,13 @@ export function MainLayout() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             
-            <div className="flex items-center gap-2">
-              <img src="/logo.png" alt="EOSA Logo" className="h-8" />
-              <span className="text-gray-500 font-medium text-lg mt-1">Gestor</span>
-            </div>
+            <Link 
+              to="/" 
+              className="flex items-center hover:opacity-90 transition-opacity focus:outline-none"
+              title="EOSA - Ir al Dashboard"
+            >
+              <img src="/logo.png" alt="EOSA" className="h-9 w-auto" />
+            </Link>
 
             <nav className="hidden md:flex space-x-2">
               {navItems.map((item) => {
@@ -43,7 +57,17 @@ export function MainLayout() {
                     )}
                   >
                     <item.icon className="w-4 h-4" />
-                    {item.label}
+                    <span>{item.label}</span>
+                    {item.badge && (
+                      <span className={clsx(
+                        "text-[10px] font-bold px-1.5 py-0.5 rounded-full tracking-wider uppercase",
+                        isActive 
+                          ? "bg-amber-400 text-gray-900" 
+                          : "bg-amber-100 text-amber-800 border border-amber-200"
+                      )}>
+                        {item.badge}
+                      </span>
+                    )}
                   </NavLink>
                 );
               })}

@@ -43,22 +43,29 @@ export function ProfileSettings() {
     setSuccess(null);
 
     try {
-      // Basic validation
-      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        throw new Error("Formato de correo electrónico no válido.");
+      // Corporate domain validation (@eosa.com)
+      if (email && !/^[^\s@]+@eosa\.com$/i.test(email.trim())) {
+        throw new Error("El correo debe terminar en @eosa.com por política corporativa.");
       }
       
       const promises = [];
       
       if (displayName !== user.displayName) {
-        promises.push(updateProfile(user, { displayName }));
+        promises.push(updateProfile(user, { displayName: displayName.trim() }));
       }
       
-      promises.push(setDoc(doc(db, 'users', user.uid), { notificationPrefs: notifications }, { merge: true }));
+      const userUpdates: Record<string, unknown> = {
+        notificationPrefs: notifications,
+        displayName: displayName.trim(),
+      };
       
       if (email !== user.email) {
-        promises.push(updateEmail(user, email));
+        const normalizedEmail = email.trim().toLowerCase();
+        userUpdates.email = normalizedEmail;
+        promises.push(updateEmail(user, normalizedEmail));
       }
+      
+      promises.push(setDoc(doc(db, 'users', user.uid), userUpdates, { merge: true }));
 
       if (newPassword) {
         if (newPassword.length < 6) {

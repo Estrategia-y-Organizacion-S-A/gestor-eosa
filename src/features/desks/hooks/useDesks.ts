@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, query, onSnapshot, doc, setDoc, deleteDoc, where, writeBatch, getDocs } from 'firebase/firestore';
+import { collection, query, onSnapshot, doc, setDoc, deleteDoc, where, writeBatch, getDocs, runTransaction } from 'firebase/firestore';
 import { db } from '../../../firebase/config';
 import { useAuth } from '../../../contexts/AuthContext';
 
@@ -41,78 +41,15 @@ export function useDesks(selectedDate: string) {
   const [bookings, setBookings] = useState<DeskBooking[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Escuchar Mesas y sembrar si falta
+  // Escuchar Mesas de la oficina
   useEffect(() => {
     const q = query(collection(db, 'officeResources'));
     const unsub = onSnapshot(q, (snap) => {
       const allDesks = snap.docs.map(d => ({ id: d.id, ...d.data() } as Desk));
       setDesks(allDesks);
-      
-      // Master Sync Script
-      if (user) {
-        const MASTER_DESKS = [
-          // Mesa E (Comunicación)
-          { label: 'E1', x: 50, y: 32, type: 'seat' }, { label: 'E2', x: 86, y: 32, type: 'seat' }, { label: 'E3', x: 122, y: 32, type: 'seat' }, { label: 'E4', x: 158, y: 32, type: 'seat' },
-          { label: 'E8', x: 50, y: 96, type: 'seat' }, { label: 'E7', x: 86, y: 96, type: 'seat' }, { label: 'E6', x: 122, y: 96, type: 'seat' }, { label: 'E5', x: 158, y: 96, type: 'seat' },
-      
-          // Mesa C (Proyectos)
-          { label: 'C1', x: 230, y: 32, type: 'seat' }, { label: 'C2', x: 266, y: 32, type: 'seat' }, { label: 'C3', x: 302, y: 32, type: 'seat' }, { label: 'C4', x: 338, y: 32, type: 'seat' },
-          { label: 'C8', x: 230, y: 96, type: 'seat' }, { label: 'C7', x: 266, y: 96, type: 'seat' }, { label: 'C6', x: 302, y: 96, type: 'seat' }, { label: 'C5', x: 338, y: 96, type: 'seat' },
-      
-          // Mesa G (Administración)
-          { label: 'G1', x: 428, y: 32, type: 'seat' }, { label: 'G2', x: 464, y: 32, type: 'seat' }, { label: 'G3', x: 500, y: 32, type: 'seat' },
-      
-          // Mesa D (Proyectos europeos)
-          { label: 'D1', x: 256, y: 280, type: 'seat' }, { label: 'D2', x: 256, y: 316, type: 'seat' }, { label: 'D3', x: 256, y: 352, type: 'seat' }, { label: 'D4', x: 256, y: 388, type: 'seat' },
-          { label: 'D8', x: 192, y: 280, type: 'seat' }, { label: 'D7', x: 192, y: 316, type: 'seat' }, { label: 'D6', x: 192, y: 352, type: 'seat' }, { label: 'D5', x: 192, y: 388, type: 'seat' },
-      
-          // Mesa B (Turismo y P.Urbana)
-          { label: 'B1', x: 516, y: 217, type: 'seat' }, { label: 'B2', x: 516, y: 253, type: 'seat' }, { label: 'B3', x: 516, y: 289, type: 'seat' }, { label: 'B4', x: 516, y: 325, type: 'seat' }, { label: 'B5', x: 516, y: 361, type: 'seat' },
-          { label: 'B10', x: 452, y: 217, type: 'seat' }, { label: 'B9', x: 452, y: 253, type: 'seat' }, { label: 'B8', x: 452, y: 289, type: 'seat' }, { label: 'B7', x: 452, y: 325, type: 'seat' }, { label: 'B6', x: 452, y: 361, type: 'seat' },
-      
-          // Mesa A (Estudios y TIC)
-          { label: 'A1', x: 636, y: 251, type: 'seat' }, { label: 'A2', x: 636, y: 287, type: 'seat' }, { label: 'A3', x: 636, y: 323, type: 'seat' },
-          { label: 'A6', x: 572, y: 251, type: 'seat' }, { label: 'A5', x: 572, y: 287, type: 'seat' }, { label: 'A4', x: 572, y: 323, type: 'seat' },
-        ];
-
-        // Solo sincronizamos si hay un desajuste en el número de mesas o si falta alguna etiqueta importante (ej. E1)
-        const hasAllMasterLabels = MASTER_DESKS.every(md => allDesks.some(d => d.label === md.label && d.x === md.x && d.y === md.y));
-        const activeSeatsCount = allDesks.filter(d => d.type !== 'meeting_room').length;
-
-        if (!hasAllMasterLabels || activeSeatsCount !== MASTER_DESKS.length) {
-          console.log("Sincronizando distribución de mesas con la DB...");
-          const batch = writeBatch(db);
-          const currentSeats = allDesks.filter(d => d.type !== 'meeting_room');
-          let ownerIndex = 0;
-
-          for (const newDesk of MASTER_DESKS) {
-            const existing = allDesks.find(d => d.label === newDesk.label);
-            if (existing) {
-              batch.set(doc(db, 'officeResources', existing.id), { x: newDesk.x, y: newDesk.y, label: newDesk.label, type: 'seat' }, { merge: true });
-              const idx = currentSeats.findIndex(s => s.id === existing.id);
-              if (idx !== -1) currentSeats.splice(idx, 1);
-            } else {
-              let ownerData: { ownerId: string | null; ownerName: string | null } = { ownerId: null, ownerName: null };
-              if (ownerIndex < currentSeats.length) {
-                ownerData = { ownerId: currentSeats[ownerIndex].ownerId || null, ownerName: currentSeats[ownerIndex].ownerName || null };
-                ownerIndex++;
-              }
-              const newRef = doc(collection(db, 'officeResources'));
-              batch.set(newRef, { ...newDesk, ...ownerData, reservable: true });
-            }
-          }
-
-          // Eliminar absolutamente todos los asientos antiguos que sobraron y no se reutilizaron (incluyendo fantasmas como Adolfo y Rodri)
-          for (let i = 0; i < currentSeats.length; i++) {
-            batch.delete(doc(db, 'officeResources', currentSeats[i].id));
-          }
-
-          batch.commit().catch(e => console.error("Error syncing desks:", e));
-        }
-      }
     });
     return unsub;
-  }, [user]);
+  }, []);
 
   // Escuchar ausencias futuras del usuario
   useEffect(() => {
@@ -227,30 +164,58 @@ export function useDesks(selectedDate: string) {
   const bookDesk = async (deskId: string, dates: string[], startTime?: string, endTime?: string) => {
     if (!user) return;
     
-    const batch = writeBatch(db);
     const deskObj = desks.find(d => d.id === deskId);
+    const isMeetingRoom = deskObj?.type === 'meeting_room';
 
-    dates.forEach(date => {
-      // Si NO es una sala de reuniones, cancelar previa del mismo usuario
-      if (deskObj && deskObj.type !== 'meeting_room') {
-        const existingBooking = bookings.find(b => b.date === date && b.userId === user.uid);
-        if (existingBooking) {
-          batch.delete(doc(db, 'deskBookings', existingBooking.id));
+    if (!isMeetingRoom) {
+      // Para puestos individuales: reserva atómica garantizando exclusividad por puesto y fecha
+      for (const date of dates) {
+        const bookingId = `${deskId}_${date}`;
+        const bookingRef = doc(db, 'deskBookings', bookingId);
+
+        // Si el usuario tenía otro puesto reservado para este día, liberarlo
+        const existingMyBooking = bookings.find(b => b.date === date && b.userId === user.uid && b.deskId !== deskId);
+        if (existingMyBooking) {
+          try {
+            await deleteDoc(doc(db, 'deskBookings', existingMyBooking.id));
+          } catch (e) {
+            console.warn("Error al liberar reserva anterior:", e);
+          }
         }
+
+        await runTransaction(db, async (tx) => {
+          const snap = await tx.get(bookingRef);
+          if (snap.exists()) {
+            const data = snap.data() as DeskBooking;
+            if (data.userId !== user.uid) {
+              throw new Error(`El puesto ya está reservado por otra persona para el día ${date}.`);
+            }
+          }
+
+          tx.set(bookingRef, {
+            deskId,
+            userId: user.uid,
+            userName: user.displayName || user.email?.split('@')[0] || 'Compañero',
+            date,
+          });
+        });
       }
-
-      const bookingRef = doc(collection(db, 'deskBookings'));
-      batch.set(bookingRef, {
-        deskId,
-        userId: user.uid,
-        userName: user.displayName || user.email?.split('@')[0] || 'Compañero',
-        date,
-        ...(startTime ? { startTime } : {}),
-        ...(endTime ? { endTime } : {}),
+    } else {
+      // Para salas de reuniones que admiten franjas horarias
+      const batch = writeBatch(db);
+      dates.forEach(date => {
+        const bookingRef = doc(collection(db, 'deskBookings'));
+        batch.set(bookingRef, {
+          deskId,
+          userId: user.uid,
+          userName: user.displayName || user.email?.split('@')[0] || 'Compañero',
+          date,
+          ...(startTime ? { startTime } : {}),
+          ...(endTime ? { endTime } : {}),
+        });
       });
-    });
-
-    await batch.commit();
+      await batch.commit();
+    }
   };
 
   const cancelBooking = async (bookingId: string) => {

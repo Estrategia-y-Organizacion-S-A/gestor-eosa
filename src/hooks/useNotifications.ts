@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, deleteDoc, addDoc } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, deleteDoc, addDoc, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -54,8 +54,15 @@ export function useNotifications() {
   const markAllAsRead = async () => {
     if (!user) return;
     const unread = notifications.filter(n => !n.read);
-    for (const n of unread) {
-      markAsRead(n.id);
+    if (unread.length === 0) return;
+    try {
+      const batch = writeBatch(db);
+      unread.forEach(n => {
+        batch.update(doc(db, 'notifications', n.id), { read: true });
+      });
+      await batch.commit();
+    } catch (e) {
+      console.error('Error marking all notifications as read', e);
     }
   };
 

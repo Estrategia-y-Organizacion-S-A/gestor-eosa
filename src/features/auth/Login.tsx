@@ -2,7 +2,10 @@ import { useState } from 'react';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, sendPasswordResetEmail } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../../firebase/config';
-import { LogIn, UserPlus, CheckCircle2, XCircle, Eye, EyeOff } from 'lucide-react';
+import { 
+  LogIn, UserPlus, CheckCircle2, XCircle, Eye, EyeOff, 
+  Building2, Car, Laptop, Sparkles, ShieldCheck, ArrowRight
+} from 'lucide-react';
 import { clsx } from 'clsx';
 import toast from 'react-hot-toast';
 import { GoogleReCaptchaProvider, useGoogleReCaptcha } from "react-google-recaptcha-v3";
@@ -18,6 +21,7 @@ function LoginForm() {
   const [isRegister, setIsRegister] = useState(false);
   const [error, setError] = useState('');
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
   const { executeRecaptcha } = useGoogleReCaptcha();
 
   const isValidEmail = (e: string) => /^[^\s@]+@eosa\.com$/i.test(e);
@@ -34,12 +38,11 @@ function LoginForm() {
     try {
       const token = await executeRecaptcha('auth_action');
       if (!token) throw new Error('reCAPTCHA failed');
-    } catch (err) {
+    } catch {
       toast.error('Error validando reCAPTCHA');
       return;
     }
 
-    
     if (!isValidEmail(email)) {
       return setError('El correo debe terminar en @eosa.com.');
     }
@@ -61,19 +64,35 @@ function LoginForm() {
       return setError('La contraseña debe tener al menos 6 caracteres.');
     }
     
+    setLoading(true);
     try {
       if (isRegister) {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         await updateProfile(userCredential.user, { displayName: name.trim() });
-        // Sincronizar también con la colección users manualmente para que no quede null en el primer registro
+        // Sincronizar con la colección users con lastLogin y createdAt
         try {
           const userDocRef = doc(db, 'users', userCredential.user.uid);
-          await setDoc(userDocRef, { displayName: name.trim() }, { merge: true });
+          await setDoc(userDocRef, { 
+            displayName: name.trim(),
+            email: email.trim().toLowerCase(),
+            status: 'active',
+            lastLogin: new Date().toISOString(),
+            createdAt: new Date().toISOString()
+          }, { merge: true });
         } catch (e) {
-          console.warn("Could not sync name to firestore:", e);
+          console.warn("Could not sync user to firestore:", e);
         }
+        toast.success('¡Cuenta creada correctamente!');
       } else {
-        await signInWithEmailAndPassword(auth, email, password);
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        try {
+          const userDocRef = doc(db, 'users', userCredential.user.uid);
+          await setDoc(userDocRef, {
+            lastLogin: new Date().toISOString()
+          }, { merge: true });
+        } catch (e) {
+          console.warn("Could not update lastLogin on signIn:", e);
+        }
       }
     } catch (err: any) {
       if (err.code === 'auth/email-already-in-use') {
@@ -83,6 +102,8 @@ function LoginForm() {
       } else {
         setError('Ha ocurrido un error. Por favor, inténtalo de nuevo.');
       }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -113,271 +134,413 @@ function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">
-      {/* Background visual flair */}
-      <div className="absolute inset-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px] opacity-30"></div>
+    <div className="min-h-screen bg-gray-50 flex flex-col lg:flex-row items-stretch">
       
-      <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10">
-        <div className="flex justify-center mb-6">
-          <img src="/logo.png" alt="EOSA Logo" className="h-14" />
-        </div>
-        <h2 className="mt-4 text-center text-3xl font-extrabold text-gray-900 tracking-tight">
-          Gestor EOSA
-        </h2>
-      </div>
+      {/* 1. Panel Izquierdo Editorial & Corporativo EOSA (Desktop) */}
+      <div className="hidden lg:flex lg:w-1/2 xl:w-5/12 bg-linear-to-br from-white via-rose-50/30 to-slate-100/70 p-12 xl:p-16 flex-col justify-between border-r border-gray-200/90 relative overflow-hidden">
+        
+        {/* Marca de agua geométrica institucional basada en el isotipo de EOSA */}
+        <svg
+          className="absolute right-0 bottom-0 w-[500px] h-[500px] text-brand-red/[0.035] pointer-events-none translate-x-1/4 translate-y-1/4"
+          viewBox="0 0 200 200"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <rect x="20" y="20" width="80" height="80" rx="14" stroke="currentColor" strokeWidth="6" />
+          <rect x="60" y="60" width="80" height="80" rx="14" stroke="currentColor" strokeWidth="6" />
+          <rect x="100" y="100" width="80" height="80" rx="14" stroke="currentColor" strokeWidth="6" />
+        </svg>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10">
-        <div className="bg-white py-8 px-4 shadow-xl sm:rounded-2xl sm:px-10 border border-gray-100">
+        {/* Resplandor cálido de marca */}
+        <div className="absolute top-0 right-0 w-96 h-96 bg-rose-100/40 rounded-full blur-3xl pointer-events-none" />
+
+        {/* Header de Marca */}
+        <div className="relative z-10">
+          <img src="/logo.png" alt="EOSA Estrategia y Organización" className="h-12 w-auto mb-6" />
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-50 border border-rose-200/70 text-[10px] font-bold uppercase tracking-wider text-brand-red mb-4">
+            <Sparkles className="w-3.5 h-3.5 text-brand-red" />
+            <span>Consultoría Estratégica e Innovadora</span>
+          </div>
+          <h1 className="text-2xl xl:text-3xl font-black text-gray-900 tracking-tight leading-snug">
+            Plataforma unificada para el equipo de profesionales de EOSA.
+          </h1>
+          <p className="mt-3 text-sm text-gray-600 leading-relaxed max-w-md">
+            Coordina tu jornada presencial, organiza trayectos compartidos entre sedes y gestiona los recursos de la empresa con máxima agilidad y sostenibilidad.
+          </p>
+        </div>
+
+        {/* Bloques de Características de la Plataforma */}
+        <div className="relative z-10 space-y-3.5 my-8">
           
-          {/* Tabs Selectors */}
-          <div className="flex mb-8 bg-gray-100/80 p-1.5 rounded-xl border border-gray-200">
-            <button 
-              type="button"
-              onClick={() => { setIsRegister(false); setError(''); }}
-              className={clsx(
-                "flex-1 py-2.5 text-sm font-bold rounded-lg transition-all flex items-center justify-center gap-2",
-                !isRegister ? "bg-white text-gray-900 shadow-sm border border-gray-200/50" : "text-gray-500 hover:text-gray-700 hover:bg-gray-200/50"
-              )}
-            >
-              <LogIn className="w-4 h-4" />
-              Iniciar Sesión
-            </button>
-            <button 
-              type="button"
-              onClick={() => { setIsRegister(true); setError(''); }}
-              className={clsx(
-                "flex-1 py-2.5 text-sm font-bold rounded-lg transition-all flex items-center justify-center gap-2",
-                isRegister ? "bg-white text-gray-900 shadow-sm border border-gray-200/50" : "text-gray-500 hover:text-gray-700 hover:bg-gray-200/50"
-              )}
-            >
-              <UserPlus className="w-4 h-4" />
-              Registro
-            </button>
+          <div className="flex items-start gap-3.5 p-3.5 rounded-2xl bg-white/80 border border-gray-200/80 shadow-2xs backdrop-blur-xs">
+            <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center shrink-0 border border-slate-200/70">
+              <Building2 className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-xs font-bold text-gray-900">Puestos y Asistencia</h3>
+              <p className="text-[11px] text-gray-500 leading-snug mt-0.5">
+                Reserva de puestos, mapa visual de oficina y control transparente de ausencias y teletrabajo.
+              </p>
+            </div>
           </div>
 
-          <form className="space-y-5" onSubmit={handleSubmit}>
-            {error && (
-              <div className="bg-red-50 text-red-600 p-4 rounded-xl text-sm border border-red-200 font-medium flex items-start gap-2">
-                <span className="block mt-0.5">⚠️</span>
-                <span>{error}</span>
-              </div>
-            )}
+          <div className="flex items-start gap-3.5 p-3.5 rounded-2xl bg-white/80 border border-rose-200/60 shadow-2xs backdrop-blur-xs">
+            <div className="w-10 h-10 rounded-xl bg-rose-50 text-brand-red flex items-center justify-center shrink-0 border border-rose-200/80">
+              <Car className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-xs font-bold text-gray-900">Movilidad Compartida</h3>
+              <p className="text-[11px] text-gray-500 leading-snug mt-0.5">
+                Carpooling entre compañeros para visitas a clientes, sedes de Vigo y Santiago, o viajes diarios.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3.5 p-3.5 rounded-2xl bg-white/80 border border-gray-200/80 shadow-2xs backdrop-blur-xs">
+            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center shrink-0 border border-amber-200/70">
+              <Laptop className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-xs font-bold text-gray-900">Equipos & Gadgets</h3>
+              <p className="text-[11px] text-gray-500 leading-snug mt-0.5">
+                Préstamo ordenado de material informático, monitores y periféricos de trabajo.
+              </p>
+            </div>
+          </div>
+
+        </div>
+
+        {/* Footer Institucional del Panel */}
+        <div className="relative z-10 pt-6 border-t border-gray-200/70 flex items-center justify-between text-xs text-gray-500">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-brand-red" />
+            <span className="text-[11px] font-semibold text-gray-600">Acceso exclusivo @eosa.com</span>
+          </div>
+          <span className="text-[10px] text-gray-400">EOSA · 30 Años</span>
+        </div>
+
+      </div>
+
+      {/* 2. Panel Derecho: Formulario de Autenticación */}
+      <div className="flex-1 flex flex-col justify-center items-center p-6 sm:p-12 lg:p-16 relative">
+        
+        {/* Cabecera en Móvil (Logo) */}
+        <div className="lg:hidden text-center mb-8">
+          <img src="/logo.png" alt="EOSA Logo" className="h-11 w-auto mx-auto mb-2" />
+          <span className="text-xs font-bold uppercase tracking-wider text-brand-red bg-rose-50 px-2.5 py-0.5 rounded-full border border-rose-200">
+            Portal EOSA
+          </span>
+        </div>
+
+        <div className="w-full max-w-md">
+          
+          {/* Tarjeta de Autenticación */}
+          <div className="bg-white rounded-3xl p-7 sm:p-9 shadow-sm border border-gray-200/90 relative">
             
-            {isRegister && (
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1.5">Nombre completo</label>
-                <div className="mt-1">
+            {/* Cabecera del formulario */}
+            <div className="mb-6">
+              <h2 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">
+                {isRegister ? 'Registro de nuevo profesional' : 'Acceso al Portal'}
+              </h2>
+              <p className="text-xs sm:text-sm text-gray-500 mt-1">
+                {isRegister 
+                  ? 'Introduce tus datos corporativos para crear tu cuenta en EOSA.'
+                  : 'Identifícate con tu cuenta oficial @eosa.com para acceder.'}
+              </p>
+            </div>
+
+            {/* Pestañas de Alternancia (Iniciar Sesión / Registro) */}
+            <div className="flex mb-6 bg-gray-100 p-1 rounded-2xl border border-gray-200/80">
+              <button 
+                type="button"
+                onClick={() => { setIsRegister(false); setError(''); }}
+                className={clsx(
+                  "flex-1 py-2 text-xs sm:text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer",
+                  !isRegister 
+                    ? "bg-white text-gray-900 shadow-xs" 
+                    : "text-gray-500 hover:text-gray-900"
+                )}
+              >
+                <LogIn className="w-3.5 h-3.5 text-brand-red" />
+                <span>Iniciar sesión</span>
+              </button>
+              <button 
+                type="button"
+                onClick={() => { setIsRegister(true); setError(''); }}
+                className={clsx(
+                  "flex-1 py-2 text-xs sm:text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer",
+                  isRegister 
+                    ? "bg-white text-gray-900 shadow-xs" 
+                    : "text-gray-500 hover:text-gray-900"
+                )}
+              >
+                <UserPlus className="w-3.5 h-3.5 text-brand-red" />
+                <span>Registro</span>
+              </button>
+            </div>
+
+            {/* Formulario */}
+            <form className="space-y-4" onSubmit={handleSubmit}>
+              
+              {/* Alerta de Error */}
+              {error && (
+                <div className="bg-rose-50 text-brand-red p-3.5 rounded-xl text-xs border border-rose-200 font-bold flex items-start gap-2">
+                  <XCircle className="w-4 h-4 text-brand-red shrink-0 mt-0.5" />
+                  <span>{error}</span>
+                </div>
+              )}
+              
+              {/* Nombre (Solo en Registro) */}
+              {isRegister && (
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1.5">
+                    Nombre y apellidos
+                  </label>
                   <input
                     type="text"
                     required
                     value={name}
                     onChange={e => setName(e.target.value)}
                     placeholder="Ej. Juan Pérez"
-                    className="appearance-none block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-red focus:border-transparent text-gray-900 bg-gray-50 focus:bg-white transition-colors"
+                    className="w-full px-3.5 py-2.5 bg-gray-50/50 focus:bg-white border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-brand-red/30 focus:border-brand-red outline-none transition-all placeholder:text-gray-400"
                   />
                 </div>
-              </div>
-            )}
-
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1.5">Email corporativo</label>
-              <div className="mt-1 relative">
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  placeholder="ejemplo@eosa.com"
-                  className={clsx(
-                    "appearance-none block w-full px-4 py-3 border rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-red focus:border-transparent transition-colors",
-                    email.length > 0 && !isValidEmail(email) ? "border-red-300 bg-red-50" : "border-gray-300 bg-gray-50 focus:bg-white text-gray-900"
-                  )}
-                />
-                {email.length > 0 && (
-                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                    {isValidEmail(email) ? (
-                      <CheckCircle2 className="h-5 w-5 text-green-500" />
-                    ) : (
-                      <XCircle className="h-5 w-5 text-red-500" />
-                    )}
-                  </div>
-                )}
-              </div>
-              {isRegister && (
-                <p className="mt-2 text-xs text-gray-500">
-                  Por seguridad, solo se permiten cuentas de correo que terminen en <span className="font-bold text-brand-red">@eosa.com</span>.
-                </p>
               )}
-            </div>
 
-            {isRegister && (
+              {/* Email Corporativo */}
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1.5">Confirmar Email</label>
-                <div className="mt-1 relative">
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1.5">
+                  Email corporativo
+                </label>
+                <div className="relative">
                   <input
                     type="email"
                     required
-                    value={confirmEmail}
-                    onChange={e => setConfirmEmail(e.target.value)}
-                    placeholder="ejemplo@eosa.com"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    placeholder="tu.nombre@eosa.com"
                     className={clsx(
-                      "appearance-none block w-full px-4 py-3 border rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-red focus:border-transparent transition-colors",
-                      confirmEmail.length > 0 && confirmEmail !== email ? "border-red-300 bg-red-50" : "border-gray-300 bg-gray-50 focus:bg-white text-gray-900"
+                      "w-full px-3.5 py-2.5 border rounded-xl text-sm focus:ring-2 focus:ring-brand-red/30 focus:border-brand-red outline-none transition-all placeholder:text-gray-400",
+                      email.length > 0 && !isValidEmail(email)
+                        ? "border-rose-300 bg-rose-50/50" 
+                        : "border-gray-300 bg-gray-50/50 focus:bg-white text-gray-900"
                     )}
                   />
-                  {confirmEmail.length > 0 && (
+                  {email.length > 0 && (
                     <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                      {confirmEmail === email && isValidEmail(email) ? (
-                        <CheckCircle2 className="h-5 w-5 text-green-500" />
+                      {isValidEmail(email) ? (
+                        <CheckCircle2 className="h-4.5 w-4.5 text-emerald-600" />
                       ) : (
-                        <XCircle className="h-5 w-5 text-red-500" />
+                        <XCircle className="h-4.5 w-4.5 text-rose-500" />
                       )}
                     </div>
                   )}
                 </div>
+                {isRegister && (
+                  <p className="mt-1.5 text-[11px] text-gray-500">
+                    Por seguridad, solo se admiten direcciones con dominio <span className="font-bold text-brand-red">@eosa.com</span>.
+                  </p>
+                )}
               </div>
-            )}
 
-            <div>
-                <div className="flex justify-between items-center mb-1.5">
-                  <label className="block text-sm font-bold text-gray-700">Contraseña</label>
-                  {!isRegister && (
-                    <button 
-                      type="button" 
-                      onClick={handleResetPasswordClick}
-                      className="text-sm font-medium text-brand-red hover:text-[#A31C30] hover:bg-red-50 hover:underline px-2 py-1 rounded-md transition-all -mr-2"
-                    >
-                      ¿Has olvidado tu contraseña?
-                    </button>
-                  )}
-                </div>
-              <div className="mt-1 relative">
-                <input
-                  type={showPassword ? "text" : "password"}
-                  required
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className={clsx(
-                    "appearance-none block w-full px-4 py-3 border rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-red focus:border-transparent transition-colors pr-20",
-                    isRegister && password.length > 0 && password.length < 6 ? "border-red-300 bg-red-50" : "border-gray-300 bg-gray-50 focus:bg-white text-gray-900"
-                  )}
-                />
-                <div className="absolute inset-y-0 right-0 pr-3 flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="text-gray-400 hover:text-gray-600 focus:outline-none transition-colors"
-                  >
-                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                  </button>
-                  {isRegister && password.length > 0 && (
-                    <div className="pointer-events-none">
-                      {password.length >= 6 ? (
-                        <CheckCircle2 className="h-5 w-5 text-green-500" />
-                      ) : (
-                        <XCircle className="h-5 w-5 text-red-500" />
+              {/* Confirmar Email (Solo en Registro) */}
+              {isRegister && (
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1.5">
+                    Confirmar email corporativo
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="email"
+                      required
+                      value={confirmEmail}
+                      onChange={e => setConfirmEmail(e.target.value)}
+                      placeholder="tu.nombre@eosa.com"
+                      className={clsx(
+                        "w-full px-3.5 py-2.5 border rounded-xl text-sm focus:ring-2 focus:ring-brand-red/30 focus:border-brand-red outline-none transition-all placeholder:text-gray-400",
+                        confirmEmail.length > 0 && confirmEmail !== email
+                          ? "border-rose-300 bg-rose-50/50" 
+                          : "border-gray-300 bg-gray-50/50 focus:bg-white text-gray-900"
                       )}
-                    </div>
-                  )}
-                </div>
-              </div>
-              {isRegister && password.length > 0 && password.length < 6 && (
-                <p className="mt-2 text-xs text-red-500">Debe tener al menos 6 caracteres.</p>
-              )}
-            </div>
-
-            {isRegister && (
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1.5">Confirmar Contraseña</label>
-                <div className="mt-1 relative">
-                  <input
-                    type={showConfirmPassword ? "text" : "password"}
-                    required
-                    value={confirmPassword}
-                    onChange={e => setConfirmPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className={clsx(
-                      "appearance-none block w-full px-4 py-3 border rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-red focus:border-transparent transition-colors pr-20",
-                      confirmPassword.length > 0 && confirmPassword !== password ? "border-red-300 bg-red-50" : "border-gray-300 bg-gray-50 focus:bg-white text-gray-900"
-                    )}
-                  />
-                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="text-gray-400 hover:text-gray-600 focus:outline-none transition-colors"
-                    >
-                      {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                    </button>
-                    {confirmPassword.length > 0 && (
-                      <div className="pointer-events-none">
-                        {confirmPassword === password && password.length >= 6 ? (
-                          <CheckCircle2 className="h-5 w-5 text-green-500" />
+                    />
+                    {confirmEmail.length > 0 && (
+                      <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                        {confirmEmail === email && isValidEmail(email) ? (
+                          <CheckCircle2 className="h-4.5 w-4.5 text-emerald-600" />
                         ) : (
-                          <XCircle className="h-5 w-5 text-red-500" />
+                          <XCircle className="h-4.5 w-4.5 text-rose-500" />
                         )}
                       </div>
                     )}
                   </div>
                 </div>
+              )}
+
+              {/* Contraseña */}
+              <div>
+                <div className="flex justify-between items-center mb-1.5">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-700">
+                    Contraseña
+                  </label>
+                  {!isRegister && (
+                    <button 
+                      type="button" 
+                      onClick={handleResetPasswordClick}
+                      className="text-xs font-bold text-brand-red hover:underline cursor-pointer"
+                    >
+                      ¿Has olvidado tu contraseña?
+                    </button>
+                  )}
+                </div>
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    required
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className={clsx(
+                      "w-full px-3.5 py-2.5 border rounded-xl text-sm focus:ring-2 focus:ring-brand-red/30 focus:border-brand-red outline-none transition-all pr-12",
+                      isRegister && password.length > 0 && password.length < 6 
+                        ? "border-rose-300 bg-rose-50/50" 
+                        : "border-gray-300 bg-gray-50/50 focus:bg-white text-gray-900"
+                    )}
+                  />
+                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="text-gray-400 hover:text-gray-600 focus:outline-none transition-colors cursor-pointer"
+                    >
+                      {showPassword ? <EyeOff className="h-4.5 w-4.5" /> : <Eye className="h-4.5 w-4.5" />}
+                    </button>
+                    {isRegister && password.length > 0 && (
+                      <div className="pointer-events-none">
+                        {password.length >= 6 ? (
+                          <CheckCircle2 className="h-4.5 w-4.5 text-emerald-600" />
+                        ) : (
+                          <XCircle className="h-4.5 w-4.5 text-rose-500" />
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {isRegister && password.length > 0 && password.length < 6 && (
+                  <p className="mt-1 text-[11px] text-rose-600 font-semibold">Debe tener al menos 6 caracteres.</p>
+                )}
               </div>
-            )}
 
+              {/* Confirmar Contraseña (Solo en Registro) */}
+              {isRegister && (
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1.5">
+                    Confirmar contraseña
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showConfirmPassword ? "text" : "password"}
+                      required
+                      value={confirmPassword}
+                      onChange={e => setConfirmPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className={clsx(
+                        "w-full px-3.5 py-2.5 border rounded-xl text-sm focus:ring-2 focus:ring-brand-red/30 focus:border-brand-red outline-none transition-all pr-12",
+                        confirmPassword.length > 0 && confirmPassword !== password 
+                          ? "border-rose-300 bg-rose-50/50" 
+                          : "border-gray-300 bg-gray-50/50 focus:bg-white text-gray-900"
+                      )}
+                    />
+                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="text-gray-400 hover:text-gray-600 focus:outline-none transition-colors cursor-pointer"
+                      >
+                        {showConfirmPassword ? <EyeOff className="h-4.5 w-4.5" /> : <Eye className="h-4.5 w-4.5" />}
+                      </button>
+                      {confirmPassword.length > 0 && (
+                        <div className="pointer-events-none">
+                          {confirmPassword === password && password.length >= 6 ? (
+                            <CheckCircle2 className="h-4.5 w-4.5 text-emerald-600" />
+                          ) : (
+                            <XCircle className="h-4.5 w-4.5 text-rose-500" />
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
 
+              {/* Botón de Envío */}
+              <div className="pt-3">
+                <button
+                  type="submit"
+                  disabled={loading || (isRegister && (name.trim().length === 0 || email !== confirmEmail || password !== confirmPassword || !isValidEmail(email) || password.length < 6))}
+                  className="w-full flex justify-center items-center py-3 px-4 rounded-xl text-sm font-bold text-white bg-brand-red hover:bg-[#a31b31] transition-all shadow-xs hover:shadow-md focus:outline-none focus:ring-2 focus:ring-brand-red/40 active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  <span>{loading ? 'Procesando...' : (isRegister ? 'Crear mi cuenta' : 'Acceder al Gestor')}</span>
+                  {isRegister ? <UserPlus className="w-4 h-4 ml-2" /> : <ArrowRight className="w-4 h-4 ml-2" />}
+                </button>
+              </div>
 
-            <div className="pt-2">
-              <button
-                type="submit"
-                disabled={isRegister && (name.trim().length === 0 || email !== confirmEmail || password !== confirmPassword || !isValidEmail(email) || password.length < 6)}
-                className="w-full flex justify-center items-center py-3.5 px-4 border border-transparent rounded-xl shadow-lg text-base font-bold text-white bg-brand-red hover:bg-[#A31C30] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-red transition-all transform hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
-              >
-                {isRegister ? 'Crear mi cuenta' : 'Acceder al Gestor'}
-                {isRegister ? <UserPlus className="w-5 h-5 ml-2" /> : <LogIn className="w-5 h-5 ml-2" />}
-              </button>
-            </div>
-        </form>
+            </form>
+          </div>
+
+          {/* Pie de Página */}
+          <div className="mt-6 text-center text-xs text-gray-400">
+            <p>© {new Date().getFullYear()} EOSA (Estrategia y Organización, S.A.)</p>
+            <p className="mt-1 text-[11px] text-gray-400">Portal interno de uso exclusivo para profesionales de EOSA.</p>
+          </div>
+
         </div>
       </div>
 
+      {/* Modal de Recuperación de Contraseña */}
       {isResetModalOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl border border-gray-100">
             <div className="flex justify-between items-center p-6 border-b border-gray-100">
-              <h2 className="text-xl font-bold text-gray-900">Recuperar contraseña</h2>
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-brand-red block mb-0.5">Seguridad EOSA</span>
+                <h2 className="text-lg font-bold text-gray-900">Recuperar contraseña</h2>
+              </div>
               <button 
                 onClick={() => setIsResetModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className="text-gray-400 hover:text-gray-600 transition-colors cursor-pointer p-1 rounded-lg"
               >
-                <XCircle className="w-6 h-6" />
+                <XCircle className="w-5 h-5" />
               </button>
             </div>
             <div className="p-6">
-              <p className="text-gray-600 mb-4 text-sm leading-relaxed">
-                Se enviará un correo con un enlace de recuperación a <strong>{email}</strong>. 
-                <br/><br/>
-                Ten en cuenta que el correo <strong>puede tardar varios minutos en llegar</strong>. Revisa también tu carpeta de correo no deseado.
+              <p className="text-gray-600 mb-4 text-xs sm:text-sm leading-relaxed">
+                Se enviará un enlace seguro de recuperación a la dirección corporativa: <br/>
+                <strong className="text-gray-900 font-bold block mt-1">{email}</strong>
               </p>
-              <div className="flex gap-3 mt-6">
+              <div className="bg-rose-50/60 border border-rose-200/80 p-3 rounded-xl text-[11px] text-brand-red leading-relaxed mb-6">
+                Ten en cuenta que el correo de verificación puede tardar un par de minutos. Revisa también la carpeta de correo no deseado.
+              </div>
+              <div className="flex gap-2.5">
                 <button 
-                  type="button"
+                  type="button" 
                   onClick={() => setIsResetModalOpen(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-xl font-semibold text-xs sm:text-sm hover:bg-gray-50 transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button 
-                  type="button"
+                  type="button" 
                   onClick={confirmResetPassword}
-                  className="flex-1 px-4 py-2 bg-brand-red text-white rounded-lg font-medium hover:bg-[#A31C30] transition-colors"
+                  className="flex-1 px-4 py-2.5 bg-brand-red text-white rounded-xl font-bold text-xs sm:text-sm hover:bg-[#a31b31] transition-colors cursor-pointer shadow-xs"
                 >
-                  Enviar correo
+                  Enviar enlace
                 </button>
               </div>
             </div>
           </div>
         </div>
       )}
+
     </div>
   );
 }
