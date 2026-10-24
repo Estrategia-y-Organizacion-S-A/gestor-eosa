@@ -8,11 +8,34 @@
   RewriteRule . /index.html [L]
 </IfModule>
 
+# SEC-05: Bloquear acceso público a archivos sensibles, de configuración y backups
+<FilesMatch "(\.env.*|\.git.*|\.bak|\.config|\.sql|\.yaml|\.yml|\.log|\.sh)$">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+  </IfModule>
+</FilesMatch>
+
+# Deshabilitar listado de directorios
+Options -Indexes
+
 # Tipos MIME correctos para JavaScript moderno y recursos estáticos
 <IfModule mod_mime.c>
   AddType application/javascript js mjs
   AddType image/svg+xml svg
   AddType application/json json
+</IfModule>
+
+# SEC-05: Cabeceras de endurecimiento y seguridad HTTP
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+  Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
 </IfModule>
 
 # Respaldo en caso de que mod_rewrite no esté habilitado

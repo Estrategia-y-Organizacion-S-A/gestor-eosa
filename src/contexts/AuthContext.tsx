@@ -23,12 +23,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser && currentUser.email) {
-        setUser(currentUser); // Siempre seteamos el usuario por defecto primero
-        
-        // Bloque 1: Registro de usuario (puede fallar si faltan reglas de Firebase)
+        // Bloque 1: Registro y verificación de usuario
         try {
           const userDocRef = doc(db, 'users', currentUser.uid);
           const userDoc = await getDoc(userDocRef);
+
+          // SEC-01 (Retrocompatible): Si es una cuenta NUEVA que aún no existe en 'users' y no ha verificado su correo, no iniciar sesión aún
+          if (!currentUser.emailVerified && !userDoc.exists()) {
+            setUser(null);
+            setIsAdmin(false);
+            setIsGadgetManager(false);
+            setLoading(false);
+            return;
+          }
           
           if (userDoc.exists() && userDoc.data()?.status === 'banned') {
             await signOut(auth);
@@ -39,6 +46,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             alert("Tu cuenta ha sido desactivada por un administrador.");
             return;
           }
+
+          setUser(currentUser);
 
           // Register or update user info preservando displayName y asegurando lastLogin
           const existingData = userDoc.exists() ? userDoc.data() : null;
@@ -55,6 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }, { merge: true });
         } catch (e) {
           console.warn("No se pudo registrar/verificar el usuario en Firestore. Falta configurar reglas de seguridad de 'users':", e);
+          setUser(currentUser);
         }
 
         // Bloque 2: Verificación de Roles (Admin y Gestor de Gadgets)

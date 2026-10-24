@@ -4,7 +4,16 @@ service cloud.firestore {
     
     // Helper functions
     function isAuthenticated() {
-      return request.auth != null && request.auth.token.email.matches('.*@eosa\\.com$');
+      return request.auth != null && 
+        request.auth.token.email.matches('.*@eosa\\.com$') &&
+        // SEC-01 (Retrocompatible): Permitir cuentas ya existentes en 'users' o nuevas cuentas con email verificado
+        (
+          request.auth.token.email_verified == true ||
+          exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ) &&
+        // SEC-03: Bloquear en base de datos a usuarios con estado 'banned'
+        (!exists(/databases/$(database)/documents/users/$(request.auth.uid)) ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('status', 'active') != 'banned');
     }
     
     function getUserEmail() {
@@ -28,10 +37,16 @@ service cloud.firestore {
       return isAdmin() || isGadgetManager();
     }
 
-    // Colección: users
+    // Colección: users (SEC-03: proteger el campo 'status' frente a auto-modificación)
     match /users/{userId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow get: if (request.auth != null && request.auth.uid == userId) || isAuthenticated();
+      allow list: if isAuthenticated();
+      allow create: if isAuthenticated() && request.auth.uid == userId && 
+        (!('status' in request.resource.data) || request.resource.data.status == 'active');
+      allow update: if isAdmin() || (
+        isAuthenticated() && request.auth.uid == userId &&
+        (!('status' in request.resource.data) || request.resource.data.status == resource.data.get('status', 'active'))
+      );
       allow delete: if isAdmin();
     }
 
@@ -41,14 +56,17 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Colección: officeResources (mesas y salas de reuniones)
+    // Colección: officeResources (SEC-02: solo asignarse a sí mismo una mesa libre o liberar la propia)
     match /officeResources/{deskId} {
       allow read: if isAuthenticated();
       allow create, delete: if isAdmin();
       allow update: if isAdmin() || (
         isAuthenticated() &&
-        // El usuario solo puede modificar asignación habitual
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ownerId', 'ownerName'])
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ownerId', 'ownerName']) &&
+        (
+          ((resource.data.get('ownerId', null) == null || resource.data.get('ownerId', null) == request.auth.uid) && request.resource.data.ownerId == request.auth.uid) ||
+          (resource.data.get('ownerId', null) == request.auth.uid && request.resource.data.ownerId == null)
+        )
       );
     }
 
@@ -68,15 +86,18 @@ service cloud.firestore {
       allow update: if false;
     }
 
-    // Colección: carpoolTrips (viajes)
+    // Colección: carpoolTrips (SEC-02: validar rango coherente de availableSeats)
     match /carpoolTrips/{tripId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && request.resource.data.driverId == request.auth.uid;
       allow update: if isAuthenticated() && (
         resource.data.driverId == request.auth.uid || 
         isAdmin() ||
-        // Permitir actualización atómica de availableSeats al reservar/cancelar
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['availableSeats'])
+        (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['availableSeats']) &&
+          request.resource.data.availableSeats >= 0 &&
+          request.resource.data.availableSeats <= resource.data.totalSeats
+        )
       );
       allow delete: if isAuthenticated() && (resource.data.driverId == request.auth.uid || isAdmin());
     }
@@ -93,14 +114,20 @@ service cloud.firestore {
       allow update: if false;
     }
 
-    // Colección: gadgets (inventario de equipos)
+    // Colección: gadgets (SEC-02: validar que solo pueda tomar prestado para sí mismo o devolver su propio préstamo)
     match /gadgets/{gadgetId} {
       allow read: if isAuthenticated();
       allow create, delete: if canManageGadgets();
       allow update: if canManageGadgets() || (
         isAuthenticated() &&
-        // Usuarios comunes solo pueden cambiar estado de préstamo y prestatario
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'currentBorrowerId', 'currentBorrowerName', 'borrowedAt'])
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status', 'currentBorrowerId', 'currentBorrowerName', 'currentBorrowerEmail',
+          'borrowedAt', 'expectedStartDate', 'expectedEndDate', 'durationLabel', 'notes'
+        ]) &&
+        (
+          (resource.data.status == 'available' && request.resource.data.status == 'borrowed' && request.resource.data.currentBorrowerId == request.auth.uid) ||
+          (resource.data.currentBorrowerId == request.auth.uid && request.resource.data.status == 'available' && request.resource.data.currentBorrowerId == null)
+        )
       );
     }
 

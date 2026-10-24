@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, sendPasswordResetEmail } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, sendPasswordResetEmail, sendEmailVerification, signOut } from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../../firebase/config';
 import { 
   LogIn, UserPlus, CheckCircle2, XCircle, Eye, EyeOff, 
@@ -70,24 +70,28 @@ function LoginForm() {
       if (isRegister) {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         await updateProfile(userCredential.user, { displayName: name.trim() });
-        // Sincronizar con la colección users con lastLogin y createdAt
-        try {
-          const userDocRef = doc(db, 'users', userCredential.user.uid);
-          await setDoc(userDocRef, { 
-            displayName: name.trim(),
-            email: email.trim().toLowerCase(),
-            status: 'active',
-            lastLogin: new Date().toISOString(),
-            createdAt: new Date().toISOString()
-          }, { merge: true });
-        } catch (e) {
-          console.warn("Could not sync user to firestore:", e);
-        }
-        toast.success('¡Cuenta creada correctamente!');
+        await sendEmailVerification(userCredential.user);
+        await signOut(auth);
+        setIsRegister(false);
+        setPassword('');
+        setConfirmPassword('');
+        toast.success('¡Cuenta creada! Hemos enviado un enlace de verificación a tu correo @eosa.com. Confírmalo para poder iniciar sesión.', { duration: 7000 });
       } else {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const userDocRef = doc(db, 'users', userCredential.user.uid);
+
+        // SEC-01 (Retrocompatible): Exigir verificación de email a cuentas nuevas que aún no existan en 'users'
+        if (!userCredential.user.emailVerified) {
+          const existingDoc = await getDoc(userDocRef);
+          if (!existingDoc.exists()) {
+            await sendEmailVerification(userCredential.user);
+            await signOut(auth);
+            setError('Tu cuenta aún no está verificada. Te hemos enviado un nuevo enlace de confirmación a tu correo @eosa.com.');
+            return;
+          }
+        }
+
         try {
-          const userDocRef = doc(db, 'users', userCredential.user.uid);
           await setDoc(userDocRef, {
             lastLogin: new Date().toISOString()
           }, { merge: true });
