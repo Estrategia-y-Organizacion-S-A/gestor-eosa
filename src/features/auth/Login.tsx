@@ -4,7 +4,8 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../../firebase/config';
 import { 
   LogIn, UserPlus, CheckCircle2, XCircle, Eye, EyeOff, 
-  Building2, Car, Laptop, Sparkles, ShieldCheck, ArrowRight
+  Building2, Car, Laptop, Sparkles, ShieldCheck, ArrowRight,
+  Mail, Clock, AlertTriangle
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { Link } from 'react-router-dom';
@@ -21,6 +22,8 @@ function LoginForm() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isRegister, setIsRegister] = useState(false);
   const [error, setError] = useState('');
+  const [verificationNoticeEmail, setVerificationNoticeEmail] = useState<string | null>(null);
+  const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const { executeRecaptcha } = useGoogleReCaptcha();
@@ -68,14 +71,17 @@ function LoginForm() {
     setLoading(true);
     try {
       if (isRegister) {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const normalizedEmail = email.trim().toLowerCase();
+        const userCredential = await createUserWithEmailAndPassword(auth, normalizedEmail, password);
         await updateProfile(userCredential.user, { displayName: name.trim() });
         await sendEmailVerification(userCredential.user);
         await signOut(auth);
         setIsRegister(false);
         setPassword('');
         setConfirmPassword('');
-        toast.success('¡Cuenta creada! Hemos enviado un enlace de verificación a tu correo @eosa.com. Confírmalo para poder iniciar sesión.', { duration: 7000 });
+        setVerificationNoticeEmail(normalizedEmail);
+        setIsVerificationModalOpen(true);
+        toast.success('¡Cuenta creada! Revisa las instrucciones para verificar tu correo.', { duration: 6000 });
       } else {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         const userDocRef = doc(db, 'users', userCredential.user.uid);
@@ -86,7 +92,9 @@ function LoginForm() {
           if (!existingDoc.exists()) {
             await sendEmailVerification(userCredential.user);
             await signOut(auth);
-            setError('Tu cuenta aún no está verificada. Te hemos enviado un nuevo enlace de confirmación a tu correo @eosa.com.');
+            setVerificationNoticeEmail(email.trim().toLowerCase());
+            setIsVerificationModalOpen(true);
+            setError('Tu cuenta aún no está verificada. Te hemos reenviado el enlace de confirmación a tu correo @eosa.com.');
             return;
           }
         }
@@ -287,6 +295,33 @@ function LoginForm() {
             {/* Formulario */}
             <form className="space-y-4" onSubmit={handleSubmit}>
               
+              {/* Aviso persistente de verificación de correo tras registro */}
+              {verificationNoticeEmail && !isRegister && (
+                <div className="bg-amber-50/90 border border-amber-200 p-4 rounded-2xl text-xs space-y-2 shadow-2xs">
+                  <div className="flex items-start gap-2.5">
+                    <Mail className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                    <div className="space-y-1 text-amber-950">
+                      <p className="font-bold">
+                        Confirma tu correo electrónico antes de entrar
+                      </p>
+                      <p className="text-[11px] text-amber-900/90 leading-relaxed">
+                        Hemos enviado un enlace de verificación a <strong className="font-bold">{verificationNoticeEmail}</strong>.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="pl-6.5 space-y-1 text-[11px] text-amber-800 border-t border-amber-200/70 pt-2">
+                    <p className="flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                      <span><strong>No es instantáneo:</strong> puede tardar unos minutos en llegar.</span>
+                    </p>
+                    <p className="flex items-center gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                      <span>Revisa también tu carpeta de <strong>Spam o Correo no deseado</strong>.</span>
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Alerta de Error */}
               {error && (
                 <div className="bg-rose-50 text-brand-red p-3.5 rounded-xl text-xs border border-rose-200 font-bold flex items-start gap-2">
@@ -506,6 +541,69 @@ function LoginForm() {
 
         </div>
       </div>
+
+      {/* Modal de Aviso de Verificación de Correo tras el Registro */}
+      {isVerificationModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl border border-gray-100">
+            <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-rose-50/40">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-brand-red text-white flex items-center justify-center shrink-0 shadow-xs">
+                  <Mail className="w-5 h-5" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-brand-red block">Verificación Obligatoria</span>
+                  <h2 className="text-lg font-black text-gray-900 leading-tight">Confirma tu correo electrónico</h2>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsVerificationModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors cursor-pointer p-1 rounded-lg"
+              >
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <p className="text-gray-600 text-xs sm:text-sm leading-relaxed">
+                Hemos enviado un correo con el enlace de activación a tu dirección corporativa:
+                <strong className="text-gray-900 font-bold block mt-1 text-sm bg-gray-50 px-3 py-2 rounded-xl border border-gray-200 font-mono">
+                  {verificationNoticeEmail || email}
+                </strong>
+              </p>
+
+              <p className="text-gray-600 text-xs sm:text-sm leading-relaxed">
+                Para completar el registro y poder acceder al <strong className="text-gray-900">Gestor EOSA</strong>, debes abrir ese correo y pulsar en el enlace de confirmación.
+              </p>
+
+              <div className="bg-amber-50 border border-amber-200/90 p-4 rounded-2xl space-y-2.5 text-xs">
+                <div className="flex items-start gap-2.5 text-amber-950">
+                  <Clock className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                  <p className="leading-snug">
+                    <strong className="font-bold">Ten paciencia, no es instantáneo:</strong> el correo puede tardar <strong>unos minutos</strong> en llegar a tu buzón.
+                  </p>
+                </div>
+                <div className="flex items-start gap-2.5 text-amber-950 border-t border-amber-200/70 pt-2.5">
+                  <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                  <p className="leading-snug">
+                    <strong className="font-bold">Revisa Spam o Correo no deseado:</strong> si no lo encuentras en tu bandeja de entrada principal, comprueba la carpeta de <strong>Spam / Correo no deseado</strong>, ya que puede llegar ahí.
+                  </p>
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button 
+                  type="button" 
+                  onClick={() => setIsVerificationModalOpen(false)}
+                  className="w-full py-3 px-4 bg-brand-red text-white rounded-xl font-bold text-xs sm:text-sm hover:bg-[#a31b31] transition-colors cursor-pointer shadow-xs"
+                >
+                  Entendido, ir a iniciar sesión
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de Recuperación de Contraseña */}
       {isResetModalOpen && (
